@@ -145,7 +145,7 @@ TODO: modify this function to include your own intro text.
 introText : Html Msg
 introText =
     div [ class "intro-text" ]
-        [ p [] [ text "This is the blank game template. Fill this part in with your own intro text." ] ]
+        [ p [] [ text "Brawl for the Last Boba!" ] ]
 
 
 {-| The view function for the application. This function mostly just routes the view
@@ -166,8 +166,8 @@ view screen =
             div [ id "settings-screen", class "screen" ]
                 [ div [ id "settings-modal" ]
                     [ div [ id "settings-modal-header" ]
-                        [ h1 [ id "settings-modal-header-title" ] [ text "My Game Name" ]
-                        , h2 [ id "settings-modal-header-team" ] [ text "My Team Name" ]
+                        [ h1 [ id "settings-modal-header-title" ] [ text "Boba Brawl" ]
+                        , h2 [ id "settings-modal-header-team" ] [ text "Frank Wu" ]
                         ]
                     , div [ id "settings-modal-intro" ] [ introText ]
                     , div [ id "settings-modal-body" ] [ Settings.view settings |> Html.map SettingsMsg ]

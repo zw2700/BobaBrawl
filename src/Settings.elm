@@ -43,7 +43,17 @@ in your Game when the user clicks StartGame.
 
 -}
 type alias Settings =
-    { initialCount : Int
+    { playMode : PlayMode
+    , computerDifficulty : ComputerDifficulty
+    , cupWidth : Float
+    , cupSlope: Float
+    , bubbleCount: Int
+    , maxForce: Float
+    , player1Name : String
+    , player1Colour : SimpleColour
+    , player2Name : String
+    , player2Colour : SimpleColour
+    , initialCount : Int
     }
 
 
@@ -54,7 +64,17 @@ For simplicity's sake, every setting MUST have a default value.
 -}
 default : Settings
 default =
-    { initialCount = 0
+    { playMode = PlayHumanVsHuman
+    , computerDifficulty = Easy
+    , cupWidth = 5.0
+    , cupSlope = 0.5
+    , bubbleCount = 10
+    , maxForce = 10.0
+    , player1Name = "Alice"
+    , player1Colour = Red
+    , player2Name = "Bob"
+    , player2Colour = Blue
+    , initialCount = 10
     }
 
 
@@ -65,7 +85,15 @@ setting). This is typically the same type as your setting.
 
 -}
 type Msg
-    = SetInitialCount Int
+    = SetPlayMode PlayMode
+    | SetComputerDifficulty ComputerDifficulty
+    | SetCupWidth Float
+    | SetCupSlope Float
+    | SetBubbleCount Int
+    | SetMaxForce Float
+    | SetPlayerName Player String
+    | SetPlayerColour Player SimpleColour
+    | SetInitialCount Int
 
 
 {-| STEP 4: Define explicitly what happens to your settings when a message is received.
@@ -77,6 +105,40 @@ with the new payload. You can see the implementations below for this.
 update : Msg -> Settings -> Settings
 update msg settings =
     case msg of
+        SetPlayMode playMode ->
+            { settings | playMode = playMode }
+
+        SetComputerDifficulty difficulty ->
+            { settings | computerDifficulty = difficulty }
+
+        SetCupWidth width ->
+            { settings | cupWidth = width }
+
+        SetCupSlope slope ->
+            { settings | cupSlope = slope }
+
+        SetBubbleCount count ->
+            { settings | bubbleCount = count }
+
+        SetMaxForce force ->
+            { settings | maxForce = force }
+
+        SetPlayerName player name ->
+            case player of
+                Player1 ->
+                    { settings | player1Name = name }
+
+                Player2 ->
+                    { settings | player2Name = name }
+
+        SetPlayerColour player colour ->
+            case player of
+                Player1 ->
+                    { settings | player1Colour = colour }
+
+                Player2 ->
+                    { settings | player2Colour = colour }
+
         SetInitialCount count ->
             { settings | initialCount = count }
 
@@ -103,7 +165,74 @@ You can customise this further if you so wish (see the HELPER FUNCTIONS section 
 -}
 pickers : Settings -> List SettingPickerItem
 pickers settings =
-    [ inputIntRange
+    [ pickChoiceDropdown
+        { label = "Play Mode"
+        , onSelect = SetPlayMode
+        , toString = playModeToString
+        , fromString = stringToPlaymode
+        , current = settings.playMode
+        , options = [ ( "Human vs Human", PlayHumanVsHuman ), ( "Me vs Computer", PlayMeVsComputer ), ( "Computer vs Me", PlayComputerVsMe ) ]
+        }
+    , pickChoiceButtons
+        { label = "Computer Difficulty"
+        , onSelect = SetComputerDifficulty
+        , current = settings.computerDifficulty
+        , options = [ ( "Easy", Easy ), ( "Hard", Hard ) ]
+        }
+    , inputFloatRange
+        { label = "Cup Width"
+        , value = settings.cupWidth
+        , step = 0.5
+        , min = 3.0
+        , max = 10.0
+        , onChange = SetCupWidth
+        }
+    , inputFloatRange
+        { label = "Cup Slope"
+        , value = settings.cupSlope
+        , step = 0.01
+        , min = 0.0
+        , max = 1.0
+        , onChange = SetCupSlope
+        }
+    , inputIntRange
+        { label = "Bubble Count"
+        , value = settings.bubbleCount
+        , min = 5
+        , max = 50
+        , onChange = SetBubbleCount
+        }
+    , inputFloatRange
+        { label = "Max Force"
+        , value = settings.maxForce
+        , step = 0.5
+        , min = 1.0
+        , max = 10.0
+        , onChange = SetMaxForce
+        }
+    , inputString
+        { label = "Player 1 Name"
+        , value = settings.player1Name
+        , onChange = SetPlayerName Player1
+        }
+    , pickChoiceButtons
+        { label = "Player 1 Colour"
+        , onSelect = SetPlayerColour Player1
+        , current = settings.player1Colour
+        , options = [ ( "Red", Red ), ( "Green", Green ), ( "Blue", Blue ) ]
+        }
+    , inputString
+        { label = "Player 2 Name"
+        , value = settings.player2Name
+        , onChange = SetPlayerName Player2
+        }
+    , pickChoiceButtons
+        { label = "Player 2 Colour"
+        , onSelect = SetPlayerColour Player2
+        , current = settings.player2Colour
+        , options = [ ( "Red", Red ), ( "Green", Green ), ( "Blue", Blue ) ]
+        }
+    , inputIntRange
         { label = "Initial Count"
         , value = settings.initialCount
         , min = 0
@@ -112,7 +241,82 @@ pickers settings =
         }
     ]
 
+--------------------------------------------------------------------------------
+-- SUPPORTING TYPES
+-- A few custom types I've defined for my settings, as I wanted to represent
+-- some of the choices as enums.
+--------------------------------------------------------------------------------
 
+
+{-| Play mode (i.e. human vs human, me vs AI or AI vs me) for the game.
+-}
+type PlayMode
+    = PlayHumanVsHuman
+    | PlayMeVsComputer
+    | PlayComputerVsMe
+
+
+{-| Basic function to convert a PlayMode to a String (for the option selector).
+-}
+playModeToString : PlayMode -> String
+playModeToString playMode =
+    case playMode of
+        PlayHumanVsHuman ->
+            "Human vs Human"
+
+        PlayMeVsComputer ->
+            "Me vs Computer"
+
+        PlayComputerVsMe ->
+            "Computer vs Me"
+
+
+{-| Basic function to convert a String to a PlayMode, with a default.
+-}
+stringToPlaymode : String -> PlayMode
+stringToPlaymode string =
+    case string of
+        "Human vs Human" ->
+            PlayHumanVsHuman
+
+        "Me vs Computer" ->
+            PlayMeVsComputer
+
+        "Computer vs Me" ->
+            PlayComputerVsMe
+
+        _ ->
+            PlayHumanVsHuman
+
+
+{-| Difficulty of the computer (if playing against a computer).
+-}
+type ComputerDifficulty
+    = Easy
+    | Hard
+
+
+{-| A simple type to represent three possible colours
+-}
+type SimpleColour
+    = Red
+    | Green
+    | Blue
+
+
+{-| Convert a colour to a string
+-}
+colourToString : SimpleColour -> String
+colourToString colour =
+    case colour of
+        Red ->
+            "red"
+
+        Green ->
+            "green"
+
+        Blue ->
+            "blue"
 
 -- =============================================================================
 -- =============================================================================
