@@ -14,6 +14,7 @@ You'll probably want to implement a lot of helper functions to make the above ea
 
 -}
 
+import Array exposing (..)
 import Common exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -45,7 +46,21 @@ if you will use it a lot.
 type alias Game =
     { settings : Settings
     , count : Int
+    , status : Status
+    , turn : Player
+    , cup : Array Row
     }
+
+
+{-| A cell, can be either empty or filled with boba
+-}
+type Cell
+    = Empty
+    | Filled
+
+{-| One row in cup
+-}
+type alias Row = Array Cell
 
 
 {-| Create the initial game data given the settings.
@@ -56,6 +71,9 @@ init settings =
         initialGame =
             { settings = settings
             , count = settings.initialCount
+            , status = Playing
+            , turn = Player1
+            , cup = init_cup settings
             }
     in
     ( initialGame, Cmd.none )
@@ -153,3 +171,22 @@ view game =
             , button [ onClick ClickedIncrement ] [ text "+" ]
             ]
         ]
+
+
+--------------------------------------------------------------------------------
+-- GAME HELPER FUNCTIONS
+-- Helper functions to implement the game logic.
+--------------------------------------------------------------------------------
+
+{-| Create the initial game data given the settings.
+-}
+init_cup : Settings -> Array Row
+init_cup settings =
+    let
+        countPerRow = List.range 0 9
+        findRowCount x = floor((toFloat x) * settings.cupSlope + settings.cupWidth)
+        toEmptyRow count = Array.repeat count Empty
+    in
+    List.map findRowCount countPerRow
+        |> List.map toEmptyRow
+        |> Array.fromList
