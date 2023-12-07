@@ -37,6 +37,10 @@ type Status
     = Playing
     | Complete Outcome
 
+{-| A type corresponding to an integer coordinate on a board.
+-}
+type alias Coord = (Int, Int)
+
 
 --------------------------------------------------------------------------------
 -- CONVENIENCE FUNCTIONS

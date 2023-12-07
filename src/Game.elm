@@ -16,11 +16,14 @@ You'll probably want to implement a lot of helper functions to make the above ea
 
 import Array exposing (..)
 import Common exposing (..)
+import Dict exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import List exposing (..)
+import List.Extra exposing (..)
 import Settings exposing (..)
+import Tuple exposing (..)
 
 
 
@@ -48,7 +51,7 @@ type alias Game =
     , count : Int
     , status : Status
     , turn : Player
-    , cup : Array Row
+    , cup : Dict Coord Cell
     }
 
 
@@ -60,7 +63,7 @@ type Cell
 
 {-| One row in cup
 -}
-type alias Row = Array Cell
+type alias Row = Dict Int Cell
 
 
 {-| Create the initial game data given the settings.
@@ -90,6 +93,7 @@ init settings =
 type Move
     = Increment
     | Decrement
+    | Sip Coord
 
 
 {-| Apply a move to a game state, returning a new game state.
@@ -102,6 +106,9 @@ applyMove move game =
 
         Decrement ->
             { game | count = game.count - 1 }
+
+        Sip coord ->
+            game
 
 
 
@@ -180,13 +187,40 @@ view game =
 
 {-| Create the initial game data given the settings.
 -}
-init_cup : Settings -> Array Row
+init_cup : Settings -> Dict Coord Cell
 init_cup settings =
     let
-        countPerRow = List.range 0 9
         findRowCount x = floor((toFloat x) * settings.cupSlope + settings.cupWidth)
-        toEmptyRow count = Array.repeat count Empty
+        countPerRow = List.map findRowCount (List.range 0 9)
+        defaultRecord = {item = ((0, 0), Empty), 
+                        row_start = 0, 
+                        bubblesLeft = settings.bubbleCount}
+        init_cup_helper {item, row_start, bubblesLeft} =
+            let
+                cell = if bubblesLeft > 0 then Filled else Empty
+                new_row_start = if (Tuple.first (Tuple.first item)) < 9 then row_start + (getValue countPerRow (Tuple.first (Tuple.first item))) - (getValue countPerRow ((Tuple.first (Tuple.first item))+1))
+                                else row_start
+            in
+            if (Tuple.second (Tuple.first item)) >= row_start + 2 * ((getValue countPerRow (Tuple.first (Tuple.first item)))-1) then
+                if (Tuple.first (Tuple.first item)) == 9 then 
+                    Nothing
+                else
+                    Just{item = ((((Tuple.first (Tuple.first item)) + 1), new_row_start), cell), 
+                            row_start = new_row_start, 
+                            bubblesLeft = bubblesLeft - 1}
+            else
+                Just{item = (((Tuple.first (Tuple.first item)), ((Tuple.second (Tuple.first item)) + 2)), cell), 
+                            row_start = row_start, 
+                            bubblesLeft = bubblesLeft - 1}
+        iteratedList = List.Extra.iterate init_cup_helper defaultRecord
     in
-    List.map findRowCount countPerRow
-        |> List.map toEmptyRow
-        |> Array.fromList
+    List.map .item iteratedList
+        |> Dict.fromList
+
+
+       
+{-| Helper function to get value from a list of integers
+-}
+getValue: List Int -> Int -> Int
+getValue arr index =
+    Maybe.withDefault 0 (List.Extra.getAt index arr)
