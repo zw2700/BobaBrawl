@@ -12,6 +12,8 @@ they'd be useful for a lot of different types of games.
 
 -}
 
+import List.Extra exposing (..)
+
 --------------------------------------------------------------------------------
 -- TYPES
 --------------------------------------------------------------------------------
@@ -57,3 +59,16 @@ opponent player =
 
         Player2 ->
             Player1
+
+{-| Helper function to get value from a list of integers
+-}
+getListValue: List Int -> Int -> Int
+getListValue arr index =
+    Maybe.withDefault 0 (List.Extra.getAt index arr)
+
+
+{-| Distance between two coordinates.
+-}
+distance : Coord -> Coord -> Float
+distance (x1, y1) (x2, y2) =
+    sqrt (toFloat ((x1 - x2) ^ 2 + (y1 - y2) ^ 2))

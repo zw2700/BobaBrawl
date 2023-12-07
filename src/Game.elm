@@ -22,7 +22,9 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import List exposing (..)
 import List.Extra exposing (..)
+import Process
 import Settings exposing (..)
+import Task
 import Tuple exposing (..)
 
 
@@ -107,9 +109,13 @@ applyMove move game =
         Decrement ->
             { game | count = game.count - 1 }
 
-        Sip coord ->
-            game
-
+        Sip (x, y) ->
+            let newGame = sipAtLocation (x, y) game
+            in
+            if newGame.settings.bubbleCount == 0 then
+                { newGame | status = Complete (Winner newGame.turn) }
+            else
+                { newGame | turn = opponent game.turn }
 
 
 --------------------------------------------------------------------------------
@@ -131,6 +137,10 @@ applyMove move game =
 type Msg
     = ClickedIncrement
     | ClickedDecrement
+    | ClickedSquare Coord
+    | PauseThenMakeComputerMove
+    | ReceivedComputerMove Move
+    | NoOp
 
 
 {-| A convenience function to pipe a command into a (Game, Cmd Msg) tuple.
@@ -156,6 +166,78 @@ update msg game =
                 |> applyMove Decrement
                 |> withCmd Cmd.none
 
+        ClickedSquare (x, y) ->
+            let nextState = applyMove (Sip (x, y)) game
+            in
+            case nextState.status of
+                Playing ->
+                    case game.settings.playMode of
+                        PlayHumanVsHuman ->
+                            nextState
+                                |> withCmd Cmd.none
+
+                        -- If the game is continuing and it's the computer's turn, then we need to generate a move.
+                        -- To make it more "human-like", pause for 250 milliseconds before generating a move.
+                        _ ->
+                            nextState
+                                |> withCmd (Task.perform (\_ -> PauseThenMakeComputerMove) (Process.sleep 250))
+
+                Complete _ ->
+                    nextState
+                        |> withCmd Cmd.none
+
+        PauseThenMakeComputerMove ->
+            case game.settings.computerDifficulty of
+                Settings.Easy ->
+                    game |> withCmd (makeComputerMoveEasy game)
+
+                Settings.Hard ->
+                    game |> withCmd (makeComputerMoveHard game)
+
+        ReceivedComputerMove move ->
+            applyMove move game
+                |> withCmd Cmd.none
+
+        NoOp ->
+            game
+                |> withCmd Cmd.none
+
+
+--------------------------------------------------------------------------------
+-- COMPUTER: EASY PLAYER
+--------------------------------------------------------------------------------
+
+{-| Logic for an "easy" computer player.
+
+This is a simple player which sorts the possible moves by
+a basic score (based on the number of neighbours next to the move)
+and then randomly picks one out of the top 5.
+
+Randomness is a little more tricky in Elm than other languages as Elm is pure,
+so this might be useful as a reference of how you might use Randomness in your
+computer AI players. Essentially any random events get wrapped in a
+Random type that you need to map/andThen under (ala Haskell monads).
+
+Your computer player function takes a game and returns a move, which you
+then wrap in ReceivedComputerMove to create a Cmd Msg.
+
+-}
+makeComputerMoveEasy : Game -> Cmd Msg
+makeComputerMoveEasy game = Task.perform ReceivedComputerMove (Task.succeed (Sip (0, 0))) 
+
+
+{-| Very similar to the easy player.
+
+This function is deterministic however, so the way it is returned
+is slightly different (wrap in Task.perform).
+
+This player is slightly better than the Easy player, and will score
+cells based on the size of the largest row of stones it will make
+for you or your opponent. It's not that challenging to beat, however.
+
+-}
+makeComputerMoveHard : Game -> Cmd Msg
+makeComputerMoveHard game = Task.perform ReceivedComputerMove (Task.succeed (Sip (0, 0))) 
 
 
 --------------------------------------------------------------------------------
@@ -192,16 +274,17 @@ init_cup settings =
     let
         findRowCount x = floor((toFloat x) * settings.cupSlope + settings.cupWidth)
         countPerRow = List.map findRowCount (List.range 0 9)
-        defaultRecord = {item = ((0, 0), Empty), 
+        defaultRecord = {item = ((0, 0), Filled), 
                         row_start = 0, 
                         bubblesLeft = settings.bubbleCount}
+
         init_cup_helper {item, row_start, bubblesLeft} =
             let
-                cell = if bubblesLeft > 0 then Filled else Empty
-                new_row_start = if (Tuple.first (Tuple.first item)) < 9 then row_start + (getValue countPerRow (Tuple.first (Tuple.first item))) - (getValue countPerRow ((Tuple.first (Tuple.first item))+1))
+                cell = if bubblesLeft > 1 then Filled else Empty
+                new_row_start = if (Tuple.first (Tuple.first item)) < 9 then row_start + (getListValue countPerRow (Tuple.first (Tuple.first item))) - (getListValue countPerRow ((Tuple.first (Tuple.first item))+1))
                                 else row_start
             in
-            if (Tuple.second (Tuple.first item)) >= row_start + 2 * ((getValue countPerRow (Tuple.first (Tuple.first item)))-1) then
+            if (Tuple.second (Tuple.first item)) >= row_start + 2 * ((getListValue countPerRow (Tuple.first (Tuple.first item)))-1) then
                 if (Tuple.first (Tuple.first item)) == 9 then 
                     Nothing
                 else
@@ -213,14 +296,56 @@ init_cup settings =
                             row_start = row_start, 
                             bubblesLeft = bubblesLeft - 1}
         iteratedList = List.Extra.iterate init_cup_helper defaultRecord
+        
     in
     List.map .item iteratedList
         |> Dict.fromList
 
 
-       
-{-| Helper function to get value from a list of integers
+{-| Helper function to sip at a location
 -}
-getValue: List Int -> Int -> Int
-getValue arr index =
-    Maybe.withDefault 0 (List.Extra.getAt index arr)
+sipAtLocation: Coord -> Game -> Game
+sipAtLocation (x, y) game =
+    let
+        cell = Maybe.withDefault Empty (Dict.get (x, y) game.cup)
+    in
+    case cell of
+        Empty ->
+            game
+
+        Filled ->
+            { game | cup = Dict.update (x, y) (\_ -> Just Empty) game.cup, settings = decrementBubbleCount game.settings}
+                |> dropAtLocation (x, y)
+
+{-| Helper function to fill bubbles at a location by dropping bubbles from above
+-}
+dropAtLocation : Coord -> Game -> Game
+dropAtLocation (x, y) game =
+    let
+        cell = Maybe.withDefault Empty (Dict.get (x, y) game.cup)
+    in
+    case cell of
+        Empty ->
+            if (Dict.member (x + 1, y) game.cup) && (Maybe.withDefault Empty (Dict.get (x + 1, y) game.cup)) == Filled then
+                dropAtLocation (x + 1, y) { game | cup = game.cup 
+                                                    |> Dict.update (x, y) (\_ -> Just Filled) 
+                                                    |> Dict.update (x + 1, y) (\_ -> Just Empty) }
+            else if (Dict.member (x + 1, y + 1) game.cup) && (Maybe.withDefault Empty (Dict.get (x + 1, y + 1) game.cup)) == Filled then
+                dropAtLocation (x + 1, y + 1) { game | cup = game.cup 
+                                                    |> Dict.update (x, y) (\_ -> Just Filled) 
+                                                    |> Dict.update (x + 1, y + 1) (\_ -> Just Empty) }
+            else if (Dict.member (x + 1, y - 1) game.cup) && (Maybe.withDefault Empty (Dict.get (x + 1, y - 1) game.cup)) == Filled then
+                dropAtLocation (x + 1, y - 1) { game | cup = game.cup 
+                                                    |> Dict.update (x, y) (\_ -> Just Filled) 
+                                                    |> Dict.update (x + 1, y - 1) (\_ -> Just Empty) }
+            else
+                game
+
+        Filled ->
+            game
+
+{-| Helper function to decrement bubble count
+-}
+decrementBubbleCount : Settings -> Settings
+decrementBubbleCount settings =
+    {settings | bubbleCount = settings.bubbleCount - 1}
