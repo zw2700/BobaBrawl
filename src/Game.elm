@@ -353,6 +353,7 @@ viewCup : Game -> Html Msg
 viewCup game =
     let
         countPerRow = game.countPerRow
+        bottomToTopRatio = toFloat(getListValue countPerRow 0) / toFloat(getListValue countPerRow 9)
 
         cellView : (Coord, Cell) -> Html Msg
         cellView ((x, y), cell) =
@@ -410,6 +411,8 @@ viewCup game =
     in
     div
         [ id "cup-container"
+        , style "clip-path" ("polygon(" ++ String.fromFloat((1 - bottomToTopRatio) * 50) ++ "% 100%," ++ String.fromFloat(100 - (1 - bottomToTopRatio) * 50) ++ "% 100%, 100% 0, 0 0)")
+        , style "height" (String.fromFloat(800 / (toFloat( getListValue countPerRow 9 ))) ++ "vh")
         ]
         [ div
             [ id "cup"]
