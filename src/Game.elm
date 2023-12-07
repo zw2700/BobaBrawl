@@ -54,6 +54,7 @@ type alias Game =
     , status : Status
     , turn : Player
     , countPerRow: List Int
+    , bubblesLeft: Int
     , cup : Dict Coord Cell
     }
 
@@ -75,6 +76,7 @@ init : Settings -> ( Game, Cmd Msg )
 init settings =
     let
         countPerRow = init_countPerRow settings
+        bubblesLeft = settings.bubbleCount
 
         initialGame =
             { settings = settings
@@ -82,7 +84,8 @@ init settings =
             , status = Playing
             , turn = Player1
             , countPerRow = countPerRow
-            , cup = init_cup settings countPerRow
+            , bubblesLeft = bubblesLeft
+            , cup = init_cup settings countPerRow bubblesLeft
             }
     in
     ( initialGame, Cmd.none )
@@ -116,7 +119,7 @@ applyMove move game =
         Sip (x, y) ->
             let newGame = sipAtLocation (x, y) game
             in
-            if newGame.settings.bubbleCount == 0 then
+            if newGame.bubblesLeft == 0 then
                 { newGame | status = Complete (Winner newGame.turn) }
             else
                 { newGame | turn = opponent game.turn }
@@ -354,10 +357,13 @@ viewCup game =
     let
         countPerRow = game.countPerRow
         bottomToTopRatio = toFloat(getListValue countPerRow 0) / toFloat(getListValue countPerRow 9)
+        bobaSize = 60 / (toFloat( getListValue countPerRow 9 ))
+        height = bobaSize*10
 
         cellView : (Coord, Cell) -> Html Msg
         cellView ((x, y), cell) =
             let
+                (left, bottom) = coordToPosition (x, y) countPerRow
                 onClickEvent =
                     if cell == Filled then
                         case game.status of
@@ -397,27 +403,40 @@ viewCup game =
                             "filled"
             in
             div
-                [ class "game-cell-container", style "grid-row" (String.fromInt x ++ " / span 1"), style "grid-column" (String.fromInt y ++ " / span 1") , onClick onClickEvent]
+                [ class "game-cell-container"
+                , style "width" (String.fromFloat bobaSize ++ "vh")
+                , style "height" (String.fromFloat bobaSize ++ "vh")
+                , style "left" (String.fromFloat left ++ "%")
+                , style "bottom" (String.fromFloat bottom ++ "%")
+                , onClick onClickEvent]
                 [ div [ class "game-cell", class cellColour ]
-                    [div [] [ text (String.fromInt x ++ "," ++ String.fromInt y) ]]
+                    [div 
+                    [ class "game-cell-marker", class cellColour ]
+                    [ ]]
                 ]
-            -- div
-            --     [ class "game-cell-container"
-            --     , onClick onClickEvent
-            --     ]
-            --     [ div [ class "game-cell", class cellColour ]
-            --         [div [ class "game-cell-marker", class cellColour ] []]
-            --     ]
     in
     div
         [ id "cup-container"
         , style "clip-path" ("polygon(" ++ String.fromFloat((1 - bottomToTopRatio) * 50) ++ "% 100%," ++ String.fromFloat(100 - (1 - bottomToTopRatio) * 50) ++ "% 100%, 100% 0, 0 0)")
-        , style "height" (String.fromFloat(800 / (toFloat( getListValue countPerRow 9 ))) ++ "vh")
+        , style "height" (String.fromFloat height ++ "vh")
         ]
         [ div
             [ id "cup"]
             (List.map cellView (Dict.toList game.cup))
         ]
+
+{-| Convert coord to position
+-}
+coordToPosition : Coord -> List Int -> (Float, Float)
+coordToPosition (x, y) countPerRow =
+    let
+        bobaSize = 60 / (toFloat( getListValue countPerRow 9 ))
+        height = bobaSize*10
+        toTopRatio = toFloat(getListValue countPerRow x) / toFloat(getListValue countPerRow 9)
+        left = ((1 - toTopRatio) * 50) + (toFloat (y-1)) * bobaSize
+        bottom = (toFloat x)*bobaSize
+    in
+    (left, bottom)
 
 --------------------------------------------------------------------------------
 -- GAME HELPER FUNCTIONS
@@ -436,16 +455,16 @@ init_countPerRow settings =
 
 {-| Create the initial game data given the settings.
 -}
-init_cup : Settings -> List Int -> Dict Coord Cell
-init_cup settings countPerRow =
+init_cup : Settings -> List Int -> Int -> Dict Coord Cell
+init_cup settings countPerRow bubblesLeft =
     let
         defaultRecord = {item = ((0, 0), Filled), 
                         row_start = 0, 
-                        bubblesLeft = settings.bubbleCount}
+                        bbL = bubblesLeft}
 
-        init_cup_helper {item, row_start, bubblesLeft} =
+        init_cup_helper {item, row_start, bbL} =
             let
-                cell = if bubblesLeft > 1 then Filled else Empty
+                cell = if bbL > 1 then Filled else Empty
                 new_row_start = if (Tuple.first (Tuple.first item)) < 9 then row_start + (getListValue countPerRow (Tuple.first (Tuple.first item))) - (getListValue countPerRow ((Tuple.first (Tuple.first item))+1))
                                 else row_start
             in
@@ -455,11 +474,11 @@ init_cup settings countPerRow =
                 else
                     Just{item = ((((Tuple.first (Tuple.first item)) + 1), new_row_start), cell), 
                             row_start = new_row_start, 
-                            bubblesLeft = bubblesLeft - 1}
+                            bbL = bbL - 1}
             else
                 Just{item = (((Tuple.first (Tuple.first item)), ((Tuple.second (Tuple.first item)) + 2)), cell), 
                             row_start = row_start, 
-                            bubblesLeft = bubblesLeft - 1}
+                            bbL = bbL - 1}
         iteratedList = List.Extra.iterate init_cup_helper defaultRecord
         
     in
@@ -479,7 +498,7 @@ sipAtLocation (x, y) game =
             game
 
         Filled ->
-            { game | cup = Dict.update (x, y) (\_ -> Just Empty) game.cup, settings = decrementBubbleCount game.settings}
+            { game | cup = Dict.update (x, y) (\_ -> Just Empty) game.cup, bubblesLeft = game.bubblesLeft - 1 }
                 |> dropAtLocation (x, y)
 
 {-| Helper function to fill bubbles at a location by dropping bubbles from above
@@ -508,12 +527,6 @@ dropAtLocation (x, y) game =
 
         Filled ->
             game
-
-{-| Helper function to decrement bubble count
--}
-decrementBubbleCount : Settings -> Settings
-decrementBubbleCount settings =
-    {settings | bubbleCount = settings.bubbleCount - 1}
 
 
 {-| Returns the colour of the current player

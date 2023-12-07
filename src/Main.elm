@@ -145,7 +145,7 @@ TODO: modify this function to include your own intro text.
 introText : Html Msg
 introText =
     div [ class "intro-text" ]
-        [ p [] [ text "Brawl for the Last Boba!" ] ]
+        [ p [] [ text "Your goal is to be the one to suck away the last boba pearl. Start brawling!" ] ]
 
 
 {-| The view function for the application. This function mostly just routes the view

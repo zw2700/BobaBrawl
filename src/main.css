@@ -307,13 +307,12 @@ button#restart-button:active {
 }
 
 #cup-container {
-  display: grid;
   grid-template-rows: auto auto auto auto auto auto auto auto auto auto;
 
   margin: auto;
-  width: 80vh;
+  width: 60vh;
   max-width: 90vw;
-  height: 80vh;
+  height: 60vh;
   max-height: 90vw;
   display: grid;
   position: relative;
@@ -323,17 +322,14 @@ button#restart-button:active {
 }
 
 .game-cell-container {
-  position: fixed;
-  height: 100%;
-  width: 100%;
-  /* grid-row: var(--x, 1) / span 1;
-  grid-column: var(--y, 1) / span 2; */
+  position: absolute;
 
 }
 
 .game-cell {
   position: relative;
   height: 100%;
+  left:50px
 }
 
 .game-cell.empty {
