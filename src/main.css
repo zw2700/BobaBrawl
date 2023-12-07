@@ -71,6 +71,9 @@ button.selected {
 
 .screen {
   background-color: #f1f5f9;
+  opacity: 0.8;
+  background-size: 10px 10px;
+  background-image: repeating-linear-gradient(45deg, #cbd5e1 0, #cbd5e1 1px, #f1f5f9 0, #f1f5f9 50%);
 }
 
 
@@ -84,6 +87,14 @@ button.selected {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.gomoku-title {
+  font-family: cursive;
+  font-weight: bold;
+  font-size: 1.1em;
+  letter-spacing: 1px;
+  margin-left: 5px;
 }
 
 #settings-modal {
@@ -182,6 +193,18 @@ button.selected {
   flex: 1;
 }
 
+.setting-picker-item-button-Red.selected {
+  background: #ef4444;
+}
+
+.setting-picker-item-button-Green.selected {
+  background: #10b981;
+}
+
+.setting-picker-item-button-Blue.selected {
+  background: #0ea5e9;
+}
+
 #settings-modal-footer {
   display: flex;
 }
@@ -237,31 +260,343 @@ button#restart-button:active {
 #game-screen-container {
   display: flex;
   flex-direction: column;
-  background: white;
-  min-width: 640px;
-  border: 1px solid #64748b;
-  padding: 2rem;
-  border: 1px solid 
 }
 
-#counter-value {
+#game-status {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
   text-align: center;
-  font-size: 7rem;
-}
-
-#counter-buttons {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 1rem;
-}
-
-#counter-buttons button {
-  font-size: 5rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
   font-weight: bold;
-  width: 8rem;
-  height: 8rem;
+  font-size: 1.2em;
+}
+
+.status-lost {
+  background: black;
+}
+
+.status-draw {
+  background: #64748b;
+}
+
+.status-won .game-status-text, .status-lost .game-status-text, .status-draw .game-status-text {
+  color: white !important;
+}
+
+.status-won.red {
+  background: #dc2626;
+}
+
+.status-won.blue {
+  background: #0284c7;
+}
+
+.status-won.green {
+  background: #16a34a;
+}
+
+.game-status-text.red {
+  color: #dc2626;
+}
+
+.game-status-text.blue {
+  color: #0284c7;
+}
+
+.game-status-text.green {
+  color: #16a34a;
+}
+
+#cup-container {
+  display: grid;
+  clip-path: polygon(10% 100%, 90% 100%, 100% 0, 0 0); 
+  grid-template-rows: auto auto auto auto auto auto auto auto auto auto;
+
+  margin: auto;
+  width: 80vh;
+  max-width: 90vw;
+  height: 80vh;
+  max-height: 90vw;
+  display: grid;
+  position: relative;
+  background: white;
+  border: 1px solid #64748b;
+  z-index: 10;
+}
+
+.game-cell-container {
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  /* grid-row: var(--x, 1) / span 1;
+  grid-column: var(--y, 1) / span 2; */
+
+}
+
+.game-cell {
+  position: relative;
+  height: 100%;
+}
+
+.game-cell.empty {
+  cursor: pointer;
+}
+
+.game-cell.filled:hover {
+  background-color: #e5e7eb;
+}
+
+.game-cell-marker.empty {
+  display: none;
+}
+
+.game-cell-marker {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  border-radius: 99999px;
+  z-index: 10;
+  border-bottom: 5px solid black;
+  animation-name: place-stone;
+  animation-duration: 0.1s;
+}
+
+.game-cell-marker.filled {
+  background: #000000;
+  border-color: #010101;
+}
+
+.game-cell-line.vertical {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  width: 1px;
+  border-left: 1px dashed #64748b;
+  z-index: 0;
+}
+
+.game-cell-line.horizontal {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  border-top: 1px dashed #64748b;
+  z-index: 0;
+}
+
+.firework-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  z-index: 20;
+  pointer-events: none;
+  display: none;
+}
+
+.firework-container.show {
+  display: block;
+}
+
+.flash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 15;
+  display: none;
+  opacity: 0;
+  animation: flash;
+  animation-duration: 3s;
+  pointer-events: none;
+}
+
+.flash.show {
+  display: block;
+}
+
+.flash.status-won {
+  background: white;
+}
+
+.flash.status-lost {
+  background: black;
+}
+
+.flash.status-draw {
+  background: #475569;
+}
+
+/* --------------------------------------------------------------------------- */
+/* GAME ANIMATIONS
+/* --------------------------------------------------------------------------- */
+
+@keyframes place-stone {
+  from {
+    margin-top: -5px;
+  }
+
+  to {
+    margin-top: 0px;
+  }
+}
+
+@keyframes flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Pure CSS firework animation: */
+/* Adapted from https://codepen.io/alvaromontoro/pen/MWrMEgW (Public CodePen MIT License) */
+@keyframes firework {
+  0% { transform: translate(var(--x), var(--initialY)); width: var(--initialSize); opacity: 1; }
+  50% { width: 0.5vmin; opacity: 1; }
+  100% { width: var(--finalSize); opacity: 0; }
+}
+
+/* @keyframes fireworkPseudo {
+  0% { transform: translate(-50%, -50%); width: var(--initialSize); opacity: 1; }
+  50% { width: 0.5vmin; opacity: 1; }
+  100% { width: var(--finalSize); opacity: 0; }
+}
+ */
+.firework,
+.firework::before,
+.firework::after
+{
+  --initialSize: 0.5vmin;
+  --finalSize: 45vmin;
+  --particleSize: 1vmin;
+  --color1: yellow;
+  --color2: khaki;
+  --color3: white;
+  --color4: lime;
+  --color5: gold;
+  --color6: mediumseagreen;
+  --y: -30vmin;
+  --x: -50%;
+  --initialY: 60vmin;
+  content: "";
+  animation: firework 2s infinite;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, var(--y));
+  width: var(--initialSize);
+  aspect-ratio: 1;
+  background: 
+    /*
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 0% 0%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 100% 0%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 100% 100%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 0% 100%,
+    */
+    
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 50% 0%,
+    radial-gradient(circle, var(--color2) var(--particleSize), #0000 0) 100% 50%,
+    radial-gradient(circle, var(--color3) var(--particleSize), #0000 0) 50% 100%,
+    radial-gradient(circle, var(--color4) var(--particleSize), #0000 0) 0% 50%,
+    
+    /* bottom right */
+    radial-gradient(circle, var(--color5) var(--particleSize), #0000 0) 80% 90%,
+    radial-gradient(circle, var(--color6) var(--particleSize), #0000 0) 95% 90%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 90% 70%,
+    radial-gradient(circle, var(--color2) var(--particleSize), #0000 0) 100% 60%,
+    radial-gradient(circle, var(--color3) var(--particleSize), #0000 0) 55% 80%,
+    radial-gradient(circle, var(--color4) var(--particleSize), #0000 0) 70% 77%,
+    
+    /* bottom left */
+    radial-gradient(circle, var(--color5) var(--particleSize), #0000 0) 22% 90%,
+    radial-gradient(circle, var(--color6) var(--particleSize), #0000 0) 45% 90%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 33% 70%,
+    radial-gradient(circle, var(--color2) var(--particleSize), #0000 0) 10% 60%,
+    radial-gradient(circle, var(--color3) var(--particleSize), #0000 0) 31% 80%,
+    radial-gradient(circle, var(--color4) var(--particleSize), #0000 0) 28% 77%,
+    radial-gradient(circle, var(--color5) var(--particleSize), #0000 0) 13% 72%,
+    
+    /* top left */
+    radial-gradient(circle, var(--color6) var(--particleSize), #0000 0) 80% 10%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 95% 14%,
+    radial-gradient(circle, var(--color2) var(--particleSize), #0000 0) 90% 23%,
+    radial-gradient(circle, var(--color3) var(--particleSize), #0000 0) 100% 43%,
+    radial-gradient(circle, var(--color4) var(--particleSize), #0000 0) 85% 27%,
+    radial-gradient(circle, var(--color5) var(--particleSize), #0000 0) 77% 37%,
+    radial-gradient(circle, var(--color6) var(--particleSize), #0000 0) 60% 7%,
+    
+    /* top right */
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 22% 14%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 45% 20%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 33% 34%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 10% 29%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 31% 37%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 28% 7%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 13% 42%
+    ;
+  background-size: var(--initialSize) var(--initialSize);
+  background-repeat: no-repeat;
+}
+
+.firework::before {
+  --x: -50%;
+  --y: -50%;
+  --initialY: -50%;
+/*   transform: translate(-20vmin, -2vmin) rotate(40deg) scale(1.3) rotateY(40deg); */
+  transform: translate(-50%, -50%) rotate(40deg) scale(1.3) rotateY(40deg);
+/*   animation: fireworkPseudo 2s infinite; */
+}
+
+.firework::after {
+  --x: -50%;
+  --y: -50%;
+  --initialY: -50%;
+/*   transform: translate(44vmin, -50%) rotate(170deg) scale(1.15) rotateY(-30deg); */
+  transform: translate(-50%, -50%) rotate(170deg) scale(1.15) rotateY(-30deg);
+/*   animation: fireworkPseudo 2s infinite; */
+}
+
+.firework:nth-child(2) {
+  --x: 30vmin;
+}
+
+.firework:nth-child(2),
+.firework:nth-child(2)::before,
+.firework:nth-child(2)::after {
+  --color1: pink;
+  --color2: violet;
+  --color3: fuchsia;
+  --color4: orchid;
+  --color5: plum;
+  --color6: lavender;  
+  --finalSize: 40vmin;
+  left: 30%;
+  top: 60%;
+  animation-delay: -0.25s;
+}
+
+.firework:nth-child(3) {
+  --x: -30vmin;
+  --y: -50vmin;
+}
+
+.firework:nth-child(3),
+.firework:nth-child(3)::before,
+.firework:nth-child(3)::after {
+  --color1: cyan;
+  --color2: lightcyan;
+  --color3: lightblue;
+  --color4: PaleTurquoise;
+  --color5: SkyBlue;
+  --color6: lavender;
+  --finalSize: 35vmin;
+  left: 70%;
+  top: 60%;
+  animation-delay: -0.4s;
 }

@@ -30,7 +30,6 @@ type Player
 -}
 type Outcome
     = Winner Player
-    | Draw
 
 
 {-| A game is either in progress of complete.

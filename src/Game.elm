@@ -53,6 +53,7 @@ type alias Game =
     , count : Int
     , status : Status
     , turn : Player
+    , countPerRow: List Int
     , cup : Dict Coord Cell
     }
 
@@ -73,12 +74,15 @@ type alias Row = Dict Int Cell
 init : Settings -> ( Game, Cmd Msg )
 init settings =
     let
+        countPerRow = init_countPerRow settings
+
         initialGame =
             { settings = settings
             , count = settings.initialCount
             , status = Playing
             , turn = Player1
-            , cup = init_cup settings
+            , countPerRow = countPerRow
+            , cup = init_cup settings countPerRow
             }
     in
     ( initialGame, Cmd.none )
@@ -137,7 +141,7 @@ applyMove move game =
 type Msg
     = ClickedIncrement
     | ClickedDecrement
-    | ClickedSquare Coord
+    | ClickedCell Coord
     | PauseThenMakeComputerMove
     | ReceivedComputerMove Move
     | NoOp
@@ -166,7 +170,7 @@ update msg game =
                 |> applyMove Decrement
                 |> withCmd Cmd.none
 
-        ClickedSquare (x, y) ->
+        ClickedCell (x, y) ->
             let nextState = applyMove (Sip (x, y)) game
             in
             case nextState.status of
@@ -251,29 +255,187 @@ Essentially, takes a game and projects it into a HTML interface where Messages
 can be sent from.
 
 -}
+-- view : Game -> Html Msg
+-- view game =
+--     div [ id "game-screen-container" ]
+--         [ h1 [id "counter-value"] [ text (String.fromInt game.count) ]
+--         , div [id "counter-buttons"]
+--             [ button [ onClick ClickedDecrement ] [ text "-" ]
+--             , button [ onClick ClickedIncrement ] [ text "+" ]
+--             ]
+--         ]
 view : Game -> Html Msg
 view game =
     div [ id "game-screen-container" ]
-        [ h1 [id "counter-value"] [ text (String.fromInt game.count) ]
-        , div [id "counter-buttons"]
-            [ button [ onClick ClickedDecrement ] [ text "-" ]
-            , button [ onClick ClickedIncrement ] [ text "+" ]
-            ]
+        [ div [ id "game-header" ] [ viewStatus game ]
+        , div [ id "game-main" ] [ viewCup game ]
         ]
 
+{-| View game status at the top of the game board
+-}
+viewStatus : Game -> Html Msg
+viewStatus ({ settings } as game) =
+    let
+        colour =
+            case game.status of
+                Complete (Winner Player1) ->
+                    settings.player1Colour |> Settings.colourToString
+
+                Complete (Winner Player2) ->
+                    settings.player2Colour |> Settings.colourToString
+
+                Playing ->
+                    currentColour game |> Settings.colourToString
+
+        ( statusClass, statusText ) =
+            case game.status of
+                Playing ->
+                    case settings.playMode of
+                        PlayHumanVsHuman ->
+                            ( "status-playing", currentName game ++ "'s turn." )
+
+                        PlayComputerVsMe ->
+                            case game.turn of
+                                Player1 ->
+                                    ( "status-thinking", currentName game ++ " is thinking..." )
+
+                                Player2 ->
+                                    ( "status-playing", "Your turn." )
+
+                        PlayMeVsComputer ->
+                            case game.turn of
+                                Player1 ->
+                                    ( "status-playing", "Your turn." )
+
+                                Player2 ->
+                                    ( "status-thinking", currentName game ++ " is thinking..." )
+
+                Complete (Winner Player1) ->
+                    case settings.playMode of
+                        PlayHumanVsHuman ->
+                            ( "status-won", currentName game ++ " WINS!" )
+
+                        PlayComputerVsMe ->
+                            ( "status-lost", "You lost..." )
+
+                        PlayMeVsComputer ->
+                            ( "status-won", "You win!" )
+
+                Complete (Winner Player2) ->
+                    case settings.playMode of
+                        PlayHumanVsHuman ->
+                            ( "status-won", currentName game ++ " WINS!" )
+
+                        PlayComputerVsMe ->
+                            ( "status-won", "You win!" )
+
+                        PlayMeVsComputer ->
+                            ( "status-lost", "You lost...)" )
+    in
+    div [ id "game-status", class statusClass, class colour ]
+        [ div [ class ("game-status-text " ++ colour) ] [ text statusText ]
+        , div [ class "firework-container", classList [ ( "show", statusClass == "status-won" ) ] ]
+            [ div [ class "firework" ] []
+            , div [ class "firework" ] []
+            , div [ class "firework" ] []
+            ]
+        , div
+            [ class "flash"
+            , class statusClass
+            , classList [ ( "show", statusClass == "status-won" || statusClass == "status-lost" || statusClass == "status-draw" ) ]
+            ]
+            []
+        ]
+
+{-| Actual game view
+-}
+viewCup : Game -> Html Msg
+viewCup game =
+    let
+        countPerRow = game.countPerRow
+
+        cellView : (Coord, Cell) -> Html Msg
+        cellView ((x, y), cell) =
+            let
+                onClickEvent =
+                    if cell == Filled then
+                        case game.status of
+                            Playing ->
+                                case game.settings.playMode of
+                                    PlayHumanVsHuman ->
+                                        ClickedCell (x, y)
+
+                                    PlayComputerVsMe ->
+                                        case game.turn of
+                                            Player1 ->
+                                                NoOp
+
+                                            Player2 ->
+                                                ClickedCell (x, y)
+
+                                    PlayMeVsComputer ->
+                                        case game.turn of
+                                            Player1 ->
+                                                ClickedCell (x, y)
+
+                                            Player2 ->
+                                                NoOp
+
+                            Complete _ ->
+                                NoOp
+
+                    else
+                        NoOp
+
+                cellColour =
+                    case cell of
+                        Empty ->
+                            "empty"
+
+                        Filled ->
+                            "filled"
+            in
+            div
+                [ class "game-cell-container", style "grid-row" (String.fromInt x ++ " / span 1"), style "grid-column" (String.fromInt y ++ " / span 1") , onClick onClickEvent]
+                [ div [ class "game-cell", class cellColour ]
+                    [div [] [ text (String.fromInt x ++ "," ++ String.fromInt y) ]]
+                ]
+            -- div
+            --     [ class "game-cell-container"
+            --     , onClick onClickEvent
+            --     ]
+            --     [ div [ class "game-cell", class cellColour ]
+            --         [div [ class "game-cell-marker", class cellColour ] []]
+            --     ]
+    in
+    div
+        [ id "cup-container"
+        ]
+        [ div
+            [ id "cup"]
+            (List.map cellView (Dict.toList game.cup))
+        ]
 
 --------------------------------------------------------------------------------
 -- GAME HELPER FUNCTIONS
 -- Helper functions to implement the game logic.
 --------------------------------------------------------------------------------
 
-{-| Create the initial game data given the settings.
+{-| Initialize count per row
 -}
-init_cup : Settings -> Dict Coord Cell
-init_cup settings =
+init_countPerRow : Settings -> List Int
+init_countPerRow settings =
     let
         findRowCount x = floor((toFloat x) * settings.cupSlope + settings.cupWidth)
-        countPerRow = List.map findRowCount (List.range 0 9)
+    in
+    List.map findRowCount (List.range 0 9)
+
+
+{-| Create the initial game data given the settings.
+-}
+init_cup : Settings -> List Int -> Dict Coord Cell
+init_cup settings countPerRow =
+    let
         defaultRecord = {item = ((0, 0), Filled), 
                         row_start = 0, 
                         bubblesLeft = settings.bubbleCount}
@@ -349,3 +511,27 @@ dropAtLocation (x, y) game =
 decrementBubbleCount : Settings -> Settings
 decrementBubbleCount settings =
     {settings | bubbleCount = settings.bubbleCount - 1}
+
+
+{-| Returns the colour of the current player
+-}
+currentColour : Game -> Settings.SimpleColour
+currentColour game =
+    case game.turn of
+        Player1 ->
+            game.settings.player1Colour
+
+        Player2 ->
+            game.settings.player2Colour
+
+
+{-| Returns the name of the current player
+-}
+currentName : Game -> String
+currentName game =
+    case game.turn of
+        Player1 ->
+            game.settings.player1Name
+
+        Player2 ->
+            game.settings.player2Name
