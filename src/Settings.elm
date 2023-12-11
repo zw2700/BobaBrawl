@@ -45,7 +45,7 @@ in your Game when the user clicks StartGame.
 type alias Settings =
     { playMode : PlayMode
     , computerDifficulty : ComputerDifficulty
-    , cupWidth : Float
+    , cupWidth : Int
     , cupSlope: Float
     , bubbleCount: Int
     , maxForce: Float
@@ -53,7 +53,6 @@ type alias Settings =
     , player1Colour : SimpleColour
     , player2Name : String
     , player2Colour : SimpleColour
-    , initialCount : Int
     }
 
 
@@ -66,15 +65,14 @@ default : Settings
 default =
     { playMode = PlayHumanVsHuman
     , computerDifficulty = Easy
-    , cupWidth = 5.0
-    , cupSlope = 0.5
-    , bubbleCount = 10
+    , cupWidth = 5 -- interpret this as the cup width in terms of number of boba in the bottom row
+    , cupSlope = 10.0 -- interpret this as the degrees of slope off the vertical
+    , bubbleCount = 24
     , maxForce = 10.0
     , player1Name = "Alice"
     , player1Colour = Red
     , player2Name = "Bob"
     , player2Colour = Blue
-    , initialCount = 10
     }
 
 
@@ -87,13 +85,12 @@ setting). This is typically the same type as your setting.
 type Msg
     = SetPlayMode PlayMode
     | SetComputerDifficulty ComputerDifficulty
-    | SetCupWidth Float
+    | SetCupWidth Int
     | SetCupSlope Float
     | SetBubbleCount Int
     | SetMaxForce Float
     | SetPlayerName Player String
     | SetPlayerColour Player SimpleColour
-    | SetInitialCount Int
 
 
 {-| STEP 4: Define explicitly what happens to your settings when a message is received.
@@ -139,8 +136,6 @@ update msg settings =
                 Player2 ->
                     { settings | player2Colour = colour }
 
-        SetInitialCount count ->
-            { settings | initialCount = count }
 
 
 {-| STEP 5: Define a list of pickers for each setting you want to be able to change.
@@ -179,20 +174,19 @@ pickers settings =
         , current = settings.computerDifficulty
         , options = [ ( "Easy", Easy ), ( "Hard", Hard ) ]
         }
-    , inputFloatRange
+    , inputIntRange
         { label = "Cup Width"
         , value = settings.cupWidth
-        , step = 0.5
-        , min = 3.0
-        , max = 10.0
+        , min = 3
+        , max = 10
         , onChange = SetCupWidth
         }
     , inputFloatRange
         { label = "Cup Slope"
         , value = settings.cupSlope
-        , step = 0.01
+        , step = 0.1
         , min = 0.0
-        , max = 1.0
+        , max = 45.0
         , onChange = SetCupSlope
         }
     , inputIntRange
@@ -231,13 +225,6 @@ pickers settings =
         , onSelect = SetPlayerColour Player2
         , current = settings.player2Colour
         , options = [ ( "Red", Red ), ( "Green", Green ), ( "Blue", Blue ) ]
-        }
-    , inputIntRange
-        { label = "Initial Count"
-        , value = settings.initialCount
-        , min = 0
-        , max = 100
-        , onChange = SetInitialCount
         }
     ]
 

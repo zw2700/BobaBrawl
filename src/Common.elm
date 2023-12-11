@@ -38,10 +38,8 @@ type Status
     = Playing
     | Complete Outcome
 
-{-| A type corresponding to an integer coordinate on a board.
--}
+{-| A integer point coordinate in 2D space. -}
 type alias Coord = (Int, Int)
-
 
 --------------------------------------------------------------------------------
 -- CONVENIENCE FUNCTIONS
@@ -59,15 +57,15 @@ opponent player =
         Player2 ->
             Player1
 
-{-| Helper function to get value from a list of integers
--}
-getListValue: List Int -> Int -> Int
-getListValue arr index =
-    Maybe.withDefault 0 (List.Extra.getAt index arr)
-
-
-{-| Distance between two coordinates.
--}
+{-| The euclidean distance between two points. -}
 distance : Coord -> Coord -> Float
 distance (x1, y1) (x2, y2) =
-    sqrt (toFloat ((x1 - x2) ^ 2 + (y1 - y2) ^ 2))
+    let
+        dx = toFloat (x1 - x2)
+        dy = toFloat (y1 - y2)
+    in
+        sqrt (dx * dx + dy * dy)
+
+
+addCoords : Coord -> Coord -> Coord
+addCoords (x1, y1) (x2, y2) = (x1 + x2, y1 + y2)

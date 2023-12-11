@@ -26,6 +26,19 @@ import Process
 import Settings exposing (..)
 import Task
 import Tuple exposing (..)
+import Set exposing (..)
+import Svg exposing (Svg)
+import Svg.Attributes 
+import Svg.Events 
+import Geometry.Svg as Svg
+import Point2d 
+import Polygon2d 
+import Frame2d
+import Circle2d
+import Length
+import Pixels
+import Rectangle2d
+
 
 
 
@@ -50,24 +63,56 @@ if you will use it a lot.
 -}
 type alias Game =
     { settings : Settings
-    , count : Int
     , status : Status
     , turn : Player
-    , countPerRow: List Int
-    , bubblesLeft: Int
-    , cup : Dict Coord Cell
+    -- Cup is a set of coordinates indicating where boba are
+    -- Note: if it's not in the set, it's empty
+    , cup : Set Coord
     }
 
 
-{-| A cell, can be either empty or filled with boba
+{-| Initialise the set of boba. 
+NOTE: the grid unit is equal to the boba's radius (i.e. half the diameter)
+Therefore Boba are at least 2 units apart. 
+This allows more natural packing of the Boba and preserves the drop behaviour
+(i.e. boba dropping will need to check the cell 2 units below and 1 unit left, 0 units, and 1 unit right of it). 
+Strategy:
+1. Calculate the width of the row using trigonometry
+2. Calculate how many boba can fit in this row 
+3. Place the boba in this row 
+4. Recurse to the next row until all boba have been used
 -}
-type Cell
-    = Empty
-    | Filled
-
-{-| One row in cup
--}
-type alias Row = Dict Int Cell
+initCup : Settings -> Set Coord
+initCup settings = 
+    let
+        -- Recursive function to implement the strategy above
+        -- Maintain an accumulator of all the boba generated so far
+        recursivelyFillRow rowNumber currentSet = 
+            -- If we have generated the number of total boba allowed, then stop recursing and return
+            if Set.size currentSet >= settings.bubbleCount then 
+                currentSet
+            -- Otherwise, we begin generating boba for a single row
+            else 
+                let
+                    -- 1) Calculate the width of the row 
+                    -- The base is the cupWidth in the settings multiplied by the diameter of the boba
+                    baseWidth = toFloat (settings.cupWidth * 2)
+                    -- Then the additional width of the current row is given by twice the width of a triangle with height (rowNumber * 2) and angle cupSlope
+                    extraWidth = 2 * ( toFloat rowNumber * 2) * (tan (degrees settings.cupSlope))
+                    rowWidth = baseWidth + extraWidth
+                    -- 2) Calculate the number of boba that will fit in this width
+                    numBoba = floor (rowWidth / 2)
+                    -- 3) Place boba in this row (starting from x = 0 - numBoba)
+                    newBoba = 
+                        List.range 0 (numBoba - 1) 
+                        |> List.map (\i -> ( 0 - numBoba + i * 2 + 1, rowNumber * 2))
+                        |> List.take (settings.bubbleCount - Set.size currentSet)
+                        |> Set.fromList
+                in
+                -- And we now add these to the accumulator of current boba and recurse to the next row
+                recursivelyFillRow (rowNumber + 1) (Set.union currentSet newBoba)
+    in
+    recursivelyFillRow 0 Set.empty
 
 
 {-| Create the initial game data given the settings.
@@ -75,17 +120,11 @@ type alias Row = Dict Int Cell
 init : Settings -> ( Game, Cmd Msg )
 init settings =
     let
-        countPerRow = init_countPerRow settings
-        bubblesLeft = settings.bubbleCount
-
         initialGame =
             { settings = settings
-            , count = settings.initialCount
             , status = Playing
             , turn = Player1
-            , countPerRow = countPerRow
-            , bubblesLeft = bubblesLeft
-            , cup = init_cup settings countPerRow bubblesLeft
+            , cup = initCup settings 
             }
     in
     ( initialGame, Cmd.none )
@@ -100,9 +139,7 @@ init settings =
 {-| The possible moves that a player can make.
 -}
 type Move
-    = Increment
-    | Decrement
-    | Sip Coord
+    = Sip Coord
 
 
 {-| Apply a move to a game state, returning a new game state.
@@ -110,19 +147,14 @@ type Move
 applyMove : Move -> Game -> Game
 applyMove move game =
     case move of
-        Increment ->
-            { game | count = game.count + 1 }
-
-        Decrement ->
-            { game | count = game.count - 1 }
-
-        Sip (x, y) ->
-            let newGame = sipAtLocation (x, y) game
-            in
-            if newGame.bubblesLeft == 0 then
-                { newGame | status = Complete (Winner newGame.turn) }
-            else
-                { newGame | turn = opponent game.turn }
+        Sip coord ->
+            game
+            -- let newGame = sipAtLocation (x, y) game
+            -- in
+            -- if newGame.bubblesLeft == 0 then
+            --     { newGame | status = Complete (Winner newGame.turn) }
+            -- else
+            --     { newGame | turn = opponent game.turn }
 
 
 --------------------------------------------------------------------------------
@@ -142,9 +174,7 @@ applyMove move game =
 {-| An enumeration of all messages that can be sent from the interface to the game
 -}
 type Msg
-    = ClickedIncrement
-    | ClickedDecrement
-    | ClickedCell Coord
+    = ClickedCell Coord
     | PauseThenMakeComputerMove
     | ReceivedComputerMove Move
     | NoOp
@@ -163,18 +193,9 @@ a new game state as well as any additional commands to be run.
 update : Msg -> Game -> ( Game, Cmd Msg )
 update msg game =
     case msg of
-        ClickedIncrement ->
-            game
-                |> applyMove Increment
-                |> withCmd Cmd.none
-
-        ClickedDecrement ->
-            game
-                |> applyMove Decrement
-                |> withCmd Cmd.none
-
-        ClickedCell (x, y) ->
-            let nextState = applyMove (Sip (x, y)) game
+        ClickedCell coord ->
+            let 
+                nextState = applyMove (Sip coord) game
             in
             case nextState.status of
                 Playing ->
@@ -230,7 +251,7 @@ then wrap in ReceivedComputerMove to create a Cmd Msg.
 
 -}
 makeComputerMoveEasy : Game -> Cmd Msg
-makeComputerMoveEasy game = Task.perform ReceivedComputerMove (Task.succeed (Sip (0, 0))) 
+makeComputerMoveEasy game = Task.perform ReceivedComputerMove (Task.succeed (Sip (0,0))) 
 
 
 {-| Very similar to the easy player.
@@ -350,184 +371,135 @@ viewStatus ({ settings } as game) =
             []
         ]
 
+{- View a single boba as an svg.  -}
+viewBoba : Coord -> Svg Msg
+viewBoba (x, y) = 
+    let
+        -- The y center needs to be adjusted for viewing (as it currently is the bottom of the boba)
+        cx = toFloat x
+        cy = toFloat y + 1.0 
+        -- Make the radius slightly more than 1 to make the boba more packed
+        radius = 1.1
+    in
+    
+    Svg.circle2d 
+        [ Svg.Attributes.fill "black"]
+        (Circle2d.atPoint (Point2d.pixels cx cy) (Pixels.float radius))
+
+{-| View clickable points on the grid -}
+viewClickablePoints : Game -> List (Svg Msg)
+viewClickablePoints game = 
+    let
+        bobaList = Set.toList game.cup
+        minX = 
+            bobaList
+            |> List.map Tuple.first
+            |> List.minimum
+            |> Maybe.withDefault 0
+        maxX = 
+            bobaList
+            |> List.map Tuple.first
+            |> List.maximum
+            |> Maybe.withDefault 0
+            
+        minY = 0
+        maxY = 
+            bobaList
+            |> List.map Tuple.second
+            |> List.maximum
+            |> Maybe.withDefault 0
+        allCoords = 
+            List.range minX maxX
+            |> List.map (\x -> List.range minY maxY |> List.map (\y -> (x, y)))
+            |> List.concat
+        viewClickableCoord (x, y) = 
+            Svg.rectangle2d
+                [ Svg.Attributes.fill "transparent"
+                , Svg.Attributes.class "clickable-point"
+                , Svg.Events.onClick (ClickedCell (x, y)) ]
+                (Rectangle2d.with { x1 = Pixels.pixels (toFloat x - 1.1), y1 = Pixels.pixels (toFloat y),  x2 = (Pixels.pixels (toFloat x - 1.1 + 2.2)), y2 = (Pixels.pixels (toFloat y + 2.2))} )
+    in
+    allCoords 
+    |> List.map viewClickableCoord
+    
+    
+
 {-| Actual game view
 -}
 viewCup : Game -> Html Msg
 viewCup game =
     let
-        countPerRow = game.countPerRow
-        bottomToTopRatio = toFloat(getListValue countPerRow 0) / toFloat(getListValue countPerRow 9)
-        bobaSize = 60 / (toFloat( getListValue countPerRow 9 ))
-        height = bobaSize*10
+        -- SVG CONTAINER:
+        -- Assume that the maximum number of rows in the cup is 10 
+        maxRows = 10 
+        -- Then the height of the cup is given by number of rows times the diameter of a boba 
+        cupHeight = maxRows * 2
+        
+        -- TODO: Note you will probably need to increase the height of the viewbox to accommodate the straw eventually!
+        -- For now, I will make it 5 units (but you might want to define this differently)
+        strawHeight = 10
+        totalHeight = cupHeight + strawHeight
+        -- The width of the base of the cup is known in the settings
+        -- The width of the viewbox must accommodate the width of the top of the cup 
+        -- The width of the top can be found using trigonometry 
+        baseWidth = toFloat game.settings.cupWidth * 2 
+        -- Reduce the total width by the compress constant to make the boba more compressed
+        totalWidth =  baseWidth + 2 * (toFloat maxRows * 2  * (tan (degrees game.settings.cupSlope))) 
+        -- We can now set the viewbox height and width 
+        -- Divide the width by two as we defined coordinate (0,0) to be the center of the base of the cup 
+        -- Add a buffer value to prevent edges being cut off 
+        buffer = 2
+        viewBoxHeight = String.fromFloat (totalHeight + buffer)
+        viewBoxWidth = String.fromFloat (totalWidth + buffer)
+        viewBoxXStart = String.fromFloat (0 - totalWidth / 2 - buffer)
+        viewBoxYStart = String.fromFloat (0 - buffer)
+        viewBoxString = String.join " " [viewBoxXStart, viewBoxYStart, viewBoxWidth, viewBoxHeight]
+        topLeftFrame = 
+            Frame2d.atPoint (Point2d.pixels (buffer / 2) (totalHeight - buffer / 2))
+                |> Frame2d.reverseY
 
-        cellView : (Coord, Cell) -> Html Msg
-        cellView ((x, y), cell) =
-            let
-                (left, bottom) = coordToPosition (x, y) countPerRow
-                onClickEvent =
-                    if cell == Filled then
-                        case game.status of
-                            Playing ->
-                                case game.settings.playMode of
-                                    PlayHumanVsHuman ->
-                                        ClickedCell (x, y)
-
-                                    PlayComputerVsMe ->
-                                        case game.turn of
-                                            Player1 ->
-                                                NoOp
-
-                                            Player2 ->
-                                                ClickedCell (x, y)
-
-                                    PlayMeVsComputer ->
-                                        case game.turn of
-                                            Player1 ->
-                                                ClickedCell (x, y)
-
-                                            Player2 ->
-                                                NoOp
-
-                            Complete _ ->
-                                NoOp
-
-                    else
-                        NoOp
-
-                cellColour =
-                    case cell of
-                        Empty ->
-                            "empty"
-
-                        Filled ->
-                            "filled"
-            in
-            div
-                [ class "game-cell-container"
-                , style "width" (String.fromFloat bobaSize ++ "vh")
-                , style "height" (String.fromFloat bobaSize ++ "vh")
-                , style "left" (String.fromFloat left ++ "%")
-                , style "bottom" (String.fromFloat bottom ++ "%")
-                , onClick onClickEvent]
-                [ div [ class "game-cell", class cellColour ]
-                    [div 
-                    [ class "game-cell-marker", class cellColour ]
-                    [ ]]
+        -- CUP TRAPEZIUM: 
+        -- Drawing the cup (trapezium) as a 2D polygon:
+        cupTrapezium = 
+            Svg.polygon2d
+                [ Svg.Attributes.stroke "black"
+                , Svg.Attributes.fill "white" 
+                , Svg.Attributes.strokeWidth "0.2"
                 ]
+                -- The vertices of the trapezium are relatively straightforward after calculating our viewbox
+                (Polygon2d.singleLoop 
+                    [Point2d.pixels (0 - baseWidth / 2) 0
+                    , Point2d.pixels (baseWidth / 2) 0
+                    , Point2d.pixels (totalWidth / 2) cupHeight
+                    , Point2d.pixels (0 - totalWidth / 2) cupHeight ])
+
     in
     div
-        [ id "cup-container"
-        , style "clip-path" ("polygon(" ++ String.fromFloat((1 - bottomToTopRatio) * 50) ++ "% 100%," ++ String.fromFloat(100 - (1 - bottomToTopRatio) * 50) ++ "% 100%, 100% 0, 0 0)")
-        , style "height" (String.fromFloat height ++ "vh")
-        ]
-        [ div
-            [ id "cup"]
-            (List.map cellView (Dict.toList game.cup))
-        ]
-
-{-| Convert coord to position
--}
-coordToPosition : Coord -> List Int -> (Float, Float)
-coordToPosition (x, y) countPerRow =
-    let
-        bobaSize = 60 / (toFloat( getListValue countPerRow 9 ))
-        height = bobaSize*10
-        toTopRatio = toFloat(getListValue countPerRow x) / toFloat(getListValue countPerRow 9)
-        left = ((1 - toTopRatio) * 50) + (toFloat (y-1)) * bobaSize
-        bottom = (toFloat x)*bobaSize
-    in
-    (left, bottom)
+        [ id "cup-container" ]
+        [ Svg.svg 
+            [ id "cup"
+            , Svg.Attributes.width "600"
+            , Svg.Attributes.height "800"
+            , Svg.Attributes.viewBox viewBoxString ] 
+            [ Svg.relativeTo topLeftFrame
+                ( Svg.g 
+                    []
+                    [ Svg.g [] [ cupTrapezium ]
+                    , Svg.g [] (List.map viewBoba (Set.toList game.cup))
+                    , Svg.g [] (viewClickablePoints game) ] )
+            ] ]
 
 --------------------------------------------------------------------------------
 -- GAME HELPER FUNCTIONS
 -- Helper functions to implement the game logic.
 --------------------------------------------------------------------------------
 
-{-| Initialize count per row
--}
-init_countPerRow : Settings -> List Int
-init_countPerRow settings =
-    let
-        findRowCount x = floor((toFloat x) * settings.cupSlope + settings.cupWidth)
-    in
-    List.map findRowCount (List.range 0 9)
-
-
-{-| Create the initial game data given the settings.
--}
-init_cup : Settings -> List Int -> Int -> Dict Coord Cell
-init_cup settings countPerRow bubblesLeft =
-    let
-        defaultRecord = {item = ((0, 0), Filled), 
-                        row_start = 0, 
-                        bbL = bubblesLeft}
-
-        init_cup_helper {item, row_start, bbL} =
-            let
-                cell = if bbL > 1 then Filled else Empty
-                new_row_start = if (Tuple.first (Tuple.first item)) < 9 then row_start + (getListValue countPerRow (Tuple.first (Tuple.first item))) - (getListValue countPerRow ((Tuple.first (Tuple.first item))+1))
-                                else row_start
-            in
-            if (Tuple.second (Tuple.first item)) >= row_start + 2 * ((getListValue countPerRow (Tuple.first (Tuple.first item)))-1) then
-                if (Tuple.first (Tuple.first item)) == 9 then 
-                    Nothing
-                else
-                    Just{item = ((((Tuple.first (Tuple.first item)) + 1), new_row_start), cell), 
-                            row_start = new_row_start, 
-                            bbL = bbL - 1}
-            else
-                Just{item = (((Tuple.first (Tuple.first item)), ((Tuple.second (Tuple.first item)) + 2)), cell), 
-                            row_start = row_start, 
-                            bbL = bbL - 1}
-        iteratedList = List.Extra.iterate init_cup_helper defaultRecord
-        
-    in
-    List.map .item iteratedList
-        |> Dict.fromList
-
-
 {-| Helper function to sip at a location
+-- TODO: Implement the sip behaviour. 
 -}
 sipAtLocation: Coord -> Game -> Game
-sipAtLocation (x, y) game =
-    let
-        cell = Maybe.withDefault Empty (Dict.get (x, y) game.cup)
-    in
-    case cell of
-        Empty ->
-            game
-
-        Filled ->
-            { game | cup = Dict.update (x, y) (\_ -> Just Empty) game.cup, bubblesLeft = game.bubblesLeft - 1 }
-                |> dropAtLocation (x, y)
-
-{-| Helper function to fill bubbles at a location by dropping bubbles from above
--}
-dropAtLocation : Coord -> Game -> Game
-dropAtLocation (x, y) game =
-    let
-        cell = Maybe.withDefault Empty (Dict.get (x, y) game.cup)
-    in
-    case cell of
-        Empty ->
-            if (Dict.member (x + 1, y) game.cup) && (Maybe.withDefault Empty (Dict.get (x + 1, y) game.cup)) == Filled then
-                dropAtLocation (x + 1, y) { game | cup = game.cup 
-                                                    |> Dict.update (x, y) (\_ -> Just Filled) 
-                                                    |> Dict.update (x + 1, y) (\_ -> Just Empty) }
-            else if (Dict.member (x + 1, y + 1) game.cup) && (Maybe.withDefault Empty (Dict.get (x + 1, y + 1) game.cup)) == Filled then
-                dropAtLocation (x + 1, y + 1) { game | cup = game.cup 
-                                                    |> Dict.update (x, y) (\_ -> Just Filled) 
-                                                    |> Dict.update (x + 1, y + 1) (\_ -> Just Empty) }
-            else if (Dict.member (x + 1, y - 1) game.cup) && (Maybe.withDefault Empty (Dict.get (x + 1, y - 1) game.cup)) == Filled then
-                dropAtLocation (x + 1, y - 1) { game | cup = game.cup 
-                                                    |> Dict.update (x, y) (\_ -> Just Filled) 
-                                                    |> Dict.update (x + 1, y - 1) (\_ -> Just Empty) }
-            else
-                game
-
-        Filled ->
-            game
-
+sipAtLocation sip game =
+    game
 
 {-| Returns the colour of the current player
 -}

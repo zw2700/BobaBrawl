@@ -307,17 +307,13 @@ button#restart-button:active {
 }
 
 #cup-container {
-  grid-template-rows: auto auto auto auto auto auto auto auto auto auto;
-
   margin: auto;
   width: 60vh;
   max-width: 90vw;
-  height: 60vh;
+  height: 80vh;
   max-height: 90vw;
   display: grid;
   position: relative;
-  background: white;
-  border: 1px solid #64748b;
   z-index: 10;
 }
 
@@ -379,6 +375,22 @@ button#restart-button:active {
   border-top: 1px dashed #64748b;
   z-index: 0;
 }
+
+.clickable-point {
+  cursor: pointer;
+}
+
+.clickable-point:hover {
+  fill: grey;
+  opacity: 0.4;
+}
+
+
+
+
+
+
+
 
 .firework-container {
   position: absolute;
