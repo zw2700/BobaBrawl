@@ -41,12 +41,32 @@ type Status
 {-| A integer point coordinate in 2D space. -}
 type alias Coord = (Int, Int)
 
-{-| Useful function for reverse sorting -}
-flippedComparison a b =
+{-| Useful function for sorting in descending order -}
+sortByWith : (a -> comparable) -> (comparable -> comparable -> Order) -> List a -> List a
+sortByWith accessor sortFunc list =
+    List.sortWith (orderBy accessor sortFunc) list
+
+orderBy : (a -> comparable) -> (comparable -> comparable -> Order) -> a -> a -> Order
+orderBy accessor orderFunc a b =
+        orderFunc (accessor a) (accessor b)
+
+
+-- Comparison Funcs
+
+ascending : comparable -> comparable -> Order
+ascending a b =
     case compare a b of
-      LT -> GT
-      EQ -> EQ
-      GT -> LT
+        LT -> LT
+        EQ -> EQ
+        GT -> GT
+
+descending : comparable -> comparable -> Order
+descending a b =
+    case compare a b of
+        LT -> GT
+        EQ -> EQ
+        GT -> LT
+        
 
 --------------------------------------------------------------------------------
 -- CONVENIENCE FUNCTIONS

@@ -306,12 +306,10 @@ button#restart-button:active {
   color: #16a34a;
 }
 
-#game-header {
-  /* border-style: solid; */
-}
-
-#game-main {
-  /* border-style: solid; */
+#cup {
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
 }
 
 .force-text{

@@ -168,7 +168,7 @@ Strategy:
 sipAtLocation: Coord -> Game -> Game
 sipAtLocation sip game =
     let
-        bobasInRange = List.sortWith flippedComparison (Set.toList (Set.filter (\c -> (distance c sip) <= game.currentForce) game.cup))
+        bobasInRange = sortByWith Tuple.second descending (Set.toList (Set.filter (\c -> (distance c sip) <= game.currentForce) game.cup))
         recursiveSip bobas cup = 
             case bobas of
                 [] ->
@@ -510,7 +510,6 @@ viewCup game =
         [ Svg.svg 
             [ id "cup"
             , Svg.Attributes.width "600"
-            , Svg.Attributes.height "800"
             , Svg.Attributes.viewBox viewBoxString ] 
             [ Svg.relativeTo topLeftFrame
                 ( Svg.g 
