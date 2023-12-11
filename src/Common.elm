@@ -41,6 +41,13 @@ type Status
 {-| A integer point coordinate in 2D space. -}
 type alias Coord = (Int, Int)
 
+{-| Useful function for reverse sorting -}
+flippedComparison a b =
+    case compare a b of
+      LT -> GT
+      EQ -> EQ
+      GT -> LT
+
 --------------------------------------------------------------------------------
 -- CONVENIENCE FUNCTIONS
 --------------------------------------------------------------------------------

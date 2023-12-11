@@ -68,6 +68,7 @@ type alias Game =
     -- Cup is a set of coordinates indicating where boba are
     -- Note: if it's not in the set, it's empty
     , cup : Set Coord
+    , debug: List Coord
     }
 
 
@@ -125,6 +126,7 @@ init settings =
             , status = Playing
             , turn = Player1
             , cup = initCup settings 
+            , debug = []
             }
     in
     ( initialGame, Cmd.none )
@@ -147,15 +149,45 @@ type Move
 applyMove : Move -> Game -> Game
 applyMove move game =
     case move of
-        Sip coord ->
-            game
-            -- let newGame = sipAtLocation (x, y) game
-            -- in
-            -- if newGame.bubblesLeft == 0 then
-            --     { newGame | status = Complete (Winner newGame.turn) }
-            -- else
-            --     { newGame | turn = opponent game.turn }
+        Sip (x,y) ->
+            let newGame = sipAtLocation (x, y) game
+            in
+            if Set.size newGame.cup == 0 then
+                { newGame | status = Complete (Winner newGame.turn) }
+            else
+                { newGame | turn = opponent game.turn }
 
+
+{-| Helper function to sip at a location
+Strategy:
+1. Get the bobas in range of the sip, convert to a list
+2. Recurse through the list, remove corresponding boba from the cup, pass the new cup to the next recursion
+-}
+sipAtLocation: Coord -> Game -> Game
+sipAtLocation sip game =
+    let
+        bobasInRange = List.sortWith flippedComparison (Set.toList (Set.filter (\c -> (distance c sip) <= 2) game.cup))
+        recursiveSip bobas cup = 
+            case bobas of
+                [] ->
+                    cup
+                (x,y)::xs ->
+                    recursiveSip xs (Set.remove (dropAtLocation (x,y) cup) cup)
+    in
+        { game | cup = recursiveSip bobasInRange game.cup, debug = bobasInRange}
+
+{-| Helper function to drop bubbles from above to fill in the gap
+-}
+dropAtLocation : Coord -> Set Coord -> Coord
+dropAtLocation (x, y) cup =
+    if (Set.member (x, y + 2) cup) then
+        dropAtLocation (x, y + 2) cup
+    else if (Set.member (x + 1, y + 2) cup) then
+        dropAtLocation (x + 1, y + 2) cup
+    else if (Set.member (x - 1, y + 2) cup) then
+        dropAtLocation (x - 1, y + 2) cup
+    else
+        (x, y)
 
 --------------------------------------------------------------------------------
 -- INTERFACE LOGIC
@@ -493,13 +525,6 @@ viewCup game =
 -- GAME HELPER FUNCTIONS
 -- Helper functions to implement the game logic.
 --------------------------------------------------------------------------------
-
-{-| Helper function to sip at a location
--- TODO: Implement the sip behaviour. 
--}
-sipAtLocation: Coord -> Game -> Game
-sipAtLocation sip game =
-    game
 
 {-| Returns the colour of the current player
 -}

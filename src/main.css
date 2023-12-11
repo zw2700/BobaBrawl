@@ -306,6 +306,10 @@ button#restart-button:active {
   color: #16a34a;
 }
 
+#cup {
+  border-style: solid;
+}
+
 #cup-container {
   margin: auto;
   width: 60vh;
