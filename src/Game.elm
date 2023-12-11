@@ -68,6 +68,7 @@ type alias Game =
     -- Cup is a set of coordinates indicating where boba are
     -- Note: if it's not in the set, it's empty
     , cup : Set Coord
+    , currentForce: Float
     , debug: List Coord
     }
 
@@ -126,6 +127,7 @@ init settings =
             , status = Playing
             , turn = Player1
             , cup = initCup settings 
+            , currentForce = settings.maxForce
             , debug = []
             }
     in
@@ -166,7 +168,7 @@ Strategy:
 sipAtLocation: Coord -> Game -> Game
 sipAtLocation sip game =
     let
-        bobasInRange = List.sortWith flippedComparison (Set.toList (Set.filter (\c -> (distance c sip) <= 2) game.cup))
+        bobasInRange = List.sortWith flippedComparison (Set.toList (Set.filter (\c -> (distance c sip) <= game.currentForce) game.cup))
         recursiveSip bobas cup = 
             case bobas of
                 [] ->
@@ -207,6 +209,7 @@ dropAtLocation (x, y) cup =
 -}
 type Msg
     = ClickedCell Coord
+    | SetForce Float
     | PauseThenMakeComputerMove
     | ReceivedComputerMove Move
     | NoOp
@@ -245,6 +248,10 @@ update msg game =
                 Complete _ ->
                     nextState
                         |> withCmd Cmd.none
+
+        SetForce force ->
+            { game | currentForce = force }
+                |> withCmd Cmd.none
 
         PauseThenMakeComputerMove ->
             case game.settings.computerDifficulty of
@@ -311,20 +318,12 @@ Essentially, takes a game and projects it into a HTML interface where Messages
 can be sent from.
 
 -}
--- view : Game -> Html Msg
--- view game =
---     div [ id "game-screen-container" ]
---         [ h1 [id "counter-value"] [ text (String.fromInt game.count) ]
---         , div [id "counter-buttons"]
---             [ button [ onClick ClickedDecrement ] [ text "-" ]
---             , button [ onClick ClickedIncrement ] [ text "+" ]
---             ]
---         ]
 view : Game -> Html Msg
 view game =
     div [ id "game-screen-container" ]
         [ div [ id "game-header" ] [ viewStatus game ]
         , div [ id "game-main" ] [ viewCup game ]
+        , viewForcePicker game
         ]
 
 {-| View game status at the top of the game board
@@ -520,6 +519,25 @@ viewCup game =
                     , Svg.g [] (List.map viewBoba (Set.toList game.cup))
                     , Svg.g [] (viewClickablePoints game) ] )
             ] ]
+
+viewForcePicker : Game -> Html Msg
+viewForcePicker game = 
+    div [ class "setting-picker-item" ]
+        [ label [ class "force-text" ] [ text "Force" ]
+        , div [ class "setting-picker-item-input-container" ]
+            [ input
+                [ class "setting-picker-item-input setting-picker-item-input-float-range"
+                , type_ "range"
+                , value (String.fromFloat game.currentForce)
+                , Html.Attributes.min (String.fromFloat 1.0)
+                , Html.Attributes.max (String.fromFloat game.settings.maxForce)
+                , step (String.fromFloat 0.5)
+                , onInput (String.toFloat >> Maybe.withDefault 0.0 >> SetForce)
+                ]
+                []
+            , div [ class "setting-picker-item-input-value" ] [ text (String.fromFloat game.currentForce) ]
+            ]
+        ]
 
 --------------------------------------------------------------------------------
 -- GAME HELPER FUNCTIONS

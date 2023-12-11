@@ -306,8 +306,17 @@ button#restart-button:active {
   color: #16a34a;
 }
 
-#cup {
-  border-style: solid;
+#game-header {
+  /* border-style: solid; */
+}
+
+#game-main {
+  /* border-style: solid; */
+}
+
+.force-text{
+  font-size: 1rem;
+  font-weight: bold;
 }
 
 #cup-container {
