@@ -37,6 +37,8 @@ import Frame2d
 import Circle2d
 import Length
 import Pixels
+import Random exposing (..)
+import Random.List exposing (..)
 import Rectangle2d
 
 
@@ -143,7 +145,7 @@ init settings =
 {-| The possible moves that a player can make.
 -}
 type Move
-    = Sip Coord
+    = Sip Coord Float
 
 
 {-| Apply a move to a game state, returning a new game state.
@@ -151,8 +153,8 @@ type Move
 applyMove : Move -> Game -> Game
 applyMove move game =
     case move of
-        Sip (x,y) ->
-            let newGame = sipAtLocation (x, y) game
+        Sip (x,y) force ->
+            let newGame = sipAtLocation (x, y) force game
             in
             if Set.size newGame.cup == 0 then
                 { newGame | status = Complete (Winner newGame.turn) }
@@ -165,10 +167,10 @@ Strategy:
 1. Get the bobas in range of the sip, convert to a list
 2. Recurse through the list, remove corresponding boba from the cup, pass the new cup to the next recursion
 -}
-sipAtLocation: Coord -> Game -> Game
-sipAtLocation sip game =
+sipAtLocation: Coord -> Float -> Game -> Game
+sipAtLocation sip force game =
     let
-        bobasInRange = sortByWith Tuple.second descending (Set.toList (Set.filter (\c -> (distance c sip) <= game.currentForce) game.cup))
+        bobasInRange = sortByWith Tuple.second descending (Set.toList (Set.filter (\c -> (distance c sip) <= force) game.cup))
         recursiveSip bobas cup = 
             case bobas of
                 [] ->
@@ -230,7 +232,7 @@ update msg game =
     case msg of
         ClickedCell coord ->
             let 
-                nextState = applyMove (Sip coord) game
+                nextState = applyMove (Sip coord game.currentForce) game
             in
             case nextState.status of
                 Playing ->
@@ -243,7 +245,7 @@ update msg game =
                         -- To make it more "human-like", pause for 250 milliseconds before generating a move.
                         _ ->
                             nextState
-                                |> withCmd (Task.perform (\_ -> PauseThenMakeComputerMove) (Process.sleep 250))
+                                |> withCmd (Task.perform (\_ -> PauseThenMakeComputerMove) (Process.sleep 1000))
 
                 Complete _ ->
                     nextState
@@ -276,35 +278,76 @@ update msg game =
 
 {-| Logic for an "easy" computer player.
 
-This is a simple player which sorts the possible moves by
-a basic score (based on the number of neighbours next to the move)
-and then randomly picks one out of the top 5.
-
-Randomness is a little more tricky in Elm than other languages as Elm is pure,
-so this might be useful as a reference of how you might use Randomness in your
-computer AI players. Essentially any random events get wrapped in a
-Random type that you need to map/andThen under (ala Haskell monads).
+Random sips.
 
 Your computer player function takes a game and returns a move, which you
 then wrap in ReceivedComputerMove to create a Cmd Msg.
 
 -}
 makeComputerMoveEasy : Game -> Cmd Msg
-makeComputerMoveEasy game = Task.perform ReceivedComputerMove (Task.succeed (Sip (0,0))) 
+makeComputerMoveEasy game = 
+    let 
+        bobaList = Set.toList game.cup
+        coord = Random.List.choose bobaList
+            |> Random.map
+                (\maybeCoord ->
+                    maybeCoord
+                        |> first
+                        |> Maybe.withDefault (0,0)
+                )
+        force = Random.float 1 game.settings.maxForce
+    in
+        Random.map2 Sip coord force
+            |> Random.generate ReceivedComputerMove
 
-
-{-| Very similar to the easy player.
-
-This function is deterministic however, so the way it is returned
-is slightly different (wrap in Task.perform).
-
-This player is slightly better than the Easy player, and will score
-cells based on the size of the largest row of stones it will make
-for you or your opponent. It's not that challenging to beat, however.
-
+{-| Look one step into the future, makes sure that opponent cannot make a move that will cause it to lose
+Strategy: 
+1. Recursively generate random sips
+2. Generate game state after move
+3. If the game is complete, then return the move
+4. Otherwise, calculate centroids of remaining bobas, calculate its radius, evaluate if radius is smaller than maxForce, if so, then recurse
 -}
 makeComputerMoveHard : Game -> Cmd Msg
-makeComputerMoveHard game = Task.perform ReceivedComputerMove (Task.succeed (Sip (0, 0))) 
+makeComputerMoveHard game = 
+    let 
+        bobaList = Set.toList game.cup
+        recursiveHelper bobaIndex force = 
+            if bobaIndex >= List.length bobaList then
+                makeComputerMoveEasy game
+            else if force < 1 then
+                recursiveHelper (bobaIndex + 1) game.settings.maxForce
+            else
+                let 
+                    coord = (List.Extra.getAt bobaIndex bobaList) |> Maybe.withDefault (0,0)
+                    nextGame = sipAtLocation coord force game
+                in
+                    if evaluateMove nextGame then
+                        Task.perform ReceivedComputerMove (Task.succeed (Sip coord force))
+                    else
+                        recursiveHelper bobaIndex (force - 0.5)
+    in
+        recursiveHelper 0 game.settings.maxForce
+
+{- Helper method to evaluate a move by calculating if opponent can finish the game -}
+evaluateMove: Game -> Bool
+evaluateMove game = 
+    if Set.size game.cup == 0 then
+        True
+    else
+        let 
+            centroid = 
+                Set.foldl 
+                    (\(x1, y1) (x2, y2) -> (x1 + x2, y1 + y2)) 
+                    (0, 0) 
+                    game.cup
+                |> (\(x, y) -> (toFloat x / toFloat (Set.size game.cup), toFloat y / toFloat (Set.size game.cup)))
+                |> (\(x, y) -> (round x, round y))
+            radius = 
+                Set.map 
+                    (\(x1, y1) -> distance (x1, y1) centroid) 
+                    game.cup
+        in
+            (radius |> Set.foldl Basics.max 0) > game.settings.maxForce
 
 
 --------------------------------------------------------------------------------
@@ -530,7 +573,7 @@ viewForcePicker game =
                 , value (String.fromFloat game.currentForce)
                 , Html.Attributes.min (String.fromFloat 1.0)
                 , Html.Attributes.max (String.fromFloat game.settings.maxForce)
-                , step (String.fromFloat 0.5)
+                , Html.Attributes.step (String.fromFloat 0.5)
                 , onInput (String.toFloat >> Maybe.withDefault 0.0 >> SetForce)
                 ]
                 []
