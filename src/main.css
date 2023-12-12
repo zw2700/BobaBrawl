@@ -312,7 +312,13 @@ button#restart-button:active {
   margin: auto;
 }
 
-.force-text{
+.force-text-easy{
+  font-size: 1.2rem;
+  font-weight: bold;
+  align-self: center;
+}
+
+.force-text-hard{
   font-size: 1rem;
   font-weight: bold;
 }

@@ -564,22 +564,25 @@ viewCup game =
 
 viewForcePicker : Game -> Html Msg
 viewForcePicker game = 
-    div [ class "setting-picker-item" ]
-        [ label [ class "force-text" ] [ text "Force" ]
-        , div [ class "setting-picker-item-input-container" ]
-            [ input
-                [ class "setting-picker-item-input setting-picker-item-input-float-range"
-                , type_ "range"
-                , value (String.fromFloat game.currentForce)
-                , Html.Attributes.min (String.fromFloat 1.0)
-                , Html.Attributes.max (String.fromFloat game.settings.maxForce)
-                , Html.Attributes.step (String.fromFloat 0.5)
-                , onInput (String.toFloat >> Maybe.withDefault 0.0 >> SetForce)
+    if game.settings.gameDifficulty == Easy then
+        div [ class "force-text-easy" ] [ text ("Force is fixed at " ++ String.fromFloat game.currentForce ++ " for easy mode.") ]
+    else
+        div [ class "setting-picker-item" ]
+            [ label [ class "force-text-hard" ] [ text "Force" ]
+            , div [ class "setting-picker-item-input-container" ]
+                [ input
+                    [ class "setting-picker-item-input setting-picker-item-input-float-range"
+                    , type_ "range"
+                    , value (String.fromFloat game.currentForce)
+                    , Html.Attributes.min (String.fromFloat 1.0)
+                    , Html.Attributes.max (String.fromFloat game.settings.maxForce)
+                    , Html.Attributes.step (String.fromFloat 0.5)
+                    , onInput (String.toFloat >> Maybe.withDefault 0.0 >> SetForce)
+                    ]
+                    []
+                , div [ class "setting-picker-item-input-value" ] [ text (String.fromFloat game.currentForce) ]
                 ]
-                []
-            , div [ class "setting-picker-item-input-value" ] [ text (String.fromFloat game.currentForce) ]
             ]
-        ]
 
 --------------------------------------------------------------------------------
 -- GAME HELPER FUNCTIONS

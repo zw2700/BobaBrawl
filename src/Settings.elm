@@ -44,7 +44,8 @@ in your Game when the user clicks StartGame.
 -}
 type alias Settings =
     { playMode : PlayMode
-    , computerDifficulty : ComputerDifficulty
+    , gameDifficulty: Difficulty
+    , computerDifficulty : Difficulty
     , cupWidth : Int
     , cupSlope: Float
     , bubbleCount: Int
@@ -64,6 +65,7 @@ For simplicity's sake, every setting MUST have a default value.
 default : Settings
 default =
     { playMode = PlayHumanVsHuman
+    , gameDifficulty = Easy
     , computerDifficulty = Easy
     , cupWidth = 5 -- interpret this as the cup width in terms of number of boba in the bottom row
     , cupSlope = 10.0 -- interpret this as the degrees of slope off the vertical
@@ -84,7 +86,8 @@ setting). This is typically the same type as your setting.
 -}
 type Msg
     = SetPlayMode PlayMode
-    | SetComputerDifficulty ComputerDifficulty
+    | SetGameDifficulty Difficulty
+    | SetComputerDifficulty Difficulty
     | SetCupWidth Int
     | SetCupSlope Float
     | SetBubbleCount Int
@@ -104,6 +107,9 @@ update msg settings =
     case msg of
         SetPlayMode playMode ->
             { settings | playMode = playMode }
+
+        SetGameDifficulty difficulty ->
+            { settings | gameDifficulty = difficulty }
 
         SetComputerDifficulty difficulty ->
             { settings | computerDifficulty = difficulty }
@@ -160,6 +166,9 @@ You can customise this further if you so wish (see the HELPER FUNCTIONS section 
 -}
 pickers : Settings -> List SettingPickerItem
 pickers settings =
+    let 
+        forceLabel = if settings.gameDifficulty == Easy then "Force" else "Max Force"
+    in
     [ pickChoiceDropdown
         { label = "Play Mode"
         , onSelect = SetPlayMode
@@ -167,6 +176,12 @@ pickers settings =
         , fromString = stringToPlaymode
         , current = settings.playMode
         , options = [ ( "Human vs Human", PlayHumanVsHuman ), ( "Me vs Computer", PlayMeVsComputer ), ( "Computer vs Me", PlayComputerVsMe ) ]
+        }
+    , pickChoiceButtons
+        { label = "Game Difficulty"
+        , onSelect = SetGameDifficulty
+        , current = settings.gameDifficulty
+        , options = [ ( "Easy", Easy ), ( "Hard", Hard ) ]
         }
     , pickChoiceButtons
         { label = "Computer Difficulty"
@@ -197,7 +212,7 @@ pickers settings =
         , onChange = SetBubbleCount
         }
     , inputFloatRange
-        { label = "Max Force"
+        { label = forceLabel
         , value = settings.maxForce
         , step = 0.5
         , min = 1.0
@@ -276,9 +291,9 @@ stringToPlaymode string =
             PlayHumanVsHuman
 
 
-{-| Difficulty of the computer (if playing against a computer).
+{-| Difficulty of the game & computer player.
 -}
-type ComputerDifficulty
+type Difficulty
     = Easy
     | Hard
 
