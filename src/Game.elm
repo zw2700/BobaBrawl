@@ -62,15 +62,17 @@ whose turn it currently is.
 You might also like to pre-calculate some data and store it here
 if you will use it a lot.
 
+Cup is a set of coordinates indicating where boba are
+Note: if it's not in the set, it's empty
+
 -}
 type alias Game =
     { settings : Settings
     , status : Status
     , turn : Player
-    -- Cup is a set of coordinates indicating where boba are
-    -- Note: if it's not in the set, it's empty
     , cup : Set Coord
     , cupShape: Shape
+    , bobasPerRow: List Int
     , currentForce: Float
     , debug: List Coord
     }
@@ -86,8 +88,26 @@ type alias Shape =
         , totalWidth: Float
     }
 
+{-| Helper function to calculate number of bobas in a row.-}
+calculateRowCount: Settings -> Int -> Int
+calculateRowCount settings rowNumber = 
+    let
+        baseWidth = toFloat (settings.cupWidth * 2)
+        -- additional width of the current row is given by twice the width of a triangle with height (rowNumber * 2) and angle cupSlope
+        extraWidth = 2 * ( toFloat rowNumber * 2) * (tan (degrees settings.cupSlope))
+        rowWidth = baseWidth + extraWidth
+        numBoba = floor (rowWidth / 2)
+    in
+    numBoba
 
-{-| Initialise the set of boba. 
+{-| Initialise the number of bobas per row.-}
+init_bpr : Settings -> List Int
+init_bpr settings = 
+    List.range 0 9
+        |> List.map (calculateRowCount settings)
+
+
+{-| Initialise the set of boba in the cup. 
 NOTE: the grid unit is equal to the boba's radius (i.e. half the diameter)
 Therefore Boba are at least 2 units apart. 
 This allows more natural packing of the Boba and preserves the drop behaviour
@@ -110,18 +130,11 @@ initCup settings =
             -- Otherwise, we begin generating boba for a single row
             else 
                 let
-                    -- 1) Calculate the width of the row 
-                    -- The base is the cupWidth in the settings multiplied by the diameter of the boba
-                    baseWidth = toFloat (settings.cupWidth * 2)
-                    -- Then the additional width of the current row is given by twice the width of a triangle with height (rowNumber * 2) and angle cupSlope
-                    extraWidth = 2 * ( toFloat rowNumber * 2) * (tan (degrees settings.cupSlope))
-                    rowWidth = baseWidth + extraWidth
-                    -- 2) Calculate the number of boba that will fit in this width
-                    numBoba = floor (rowWidth / 2)
-                    -- 3) Place boba in this row (starting from x = 0 - numBoba)
+                    numBoba = calculateRowCount settings rowNumber
+                    -- Place boba in this row (starting from x = 0 - numBoba)
                     newBoba = 
                         List.range 0 (numBoba - 1) 
-                        |> List.map (\i -> ( 0 - numBoba + i * 2 + 1, rowNumber * 2))
+                        |> List.map (\i -> ( 0 - numBoba + i * 2 + 1, rowNumber * 2 + 1))
                         |> List.take (settings.bubbleCount - Set.size currentSet)
                         |> Set.fromList
                 in
@@ -134,14 +147,11 @@ initCup settings =
 init_cup_shape : Settings -> Shape
 init_cup_shape settings = 
     let
-        -- SVG CONTAINER:
-        -- Assume that the maximum number of rows in the cup is 10 
+        -- Height of cup is 10 by default. Can't be changed in this version.
         maxRows = 10 
-        -- Then the height of the cup is given by number of rows times the diameter of a boba 
         cupHeight = maxRows * 2
         
-        -- TODO: Note you will probably need to increase the height of the viewbox to accommodate the straw eventually!
-        -- For now, I will make it 5 units (but you might want to define this differently)
+        -- Height of straw is 10 by default. Can't be changed in this version.
         strawHeight = 10
         totalHeight = cupHeight + strawHeight
         -- The width of the base of the cup is known in the settings
@@ -172,11 +182,21 @@ init settings =
             , turn = Player1
             , cup = initCup settings 
             , cupShape = init_cup_shape settings
+            , bobasPerRow = init_bpr settings
             , currentForce = settings.maxForce
-            , debug = []
+            , debug = [] -- for debug purposes
             }
     in
-    ( initialGame, Cmd.none )
+    case settings.playMode of
+        PlayHumanVsHuman ->
+            ( initialGame, Cmd.none )
+
+        PlayComputerVsMe ->
+            ( initialGame, Task.perform (\_ -> PauseThenMakeComputerMove) (Process.sleep 500) )
+
+        PlayMeVsComputer ->
+            ( initialGame, Cmd.none )
+
 
 
 
@@ -205,10 +225,42 @@ applyMove move game =
                 { newGame | turn = opponent game.turn }
 
 
-{-| Helper function to sip at a location
+-- {-| Simple helper function to sip at a location
+-- Strategy:
+-- 1. Get the bobas in range of the sip, convert to a list
+-- 2. Recurse through the list, remove corresponding boba from the cup, pass the new cup to the next recursion
+-- -}
+-- sipAtLocation: Coord -> Float -> Game -> Game
+-- sipAtLocation sip force game =
+--     let
+--         bobasInRange = sortByWith Tuple.second descending (Set.toList (Set.filter (\c -> (distance c sip) <= force) game.cup))
+--         recursiveSip bobas cup = 
+--             case bobas of
+--                 [] ->
+--                     cup
+--                 (x,y)::xs ->
+--                     recursiveSip xs (Set.remove (dropAtLocation (x,y) cup) cup)
+--     in
+--         { game | cup = recursiveSip bobasInRange game.cup, debug = bobasInRange}
+
+-- {-| Helper function to drop bubbles from above to fill in the gap
+-- -}
+-- dropAtLocation : Coord -> Set Coord -> Coord
+-- dropAtLocation (x, y) cup =
+--     if (Set.member (x, y + 2) cup) then
+--         dropAtLocation (x, y + 2) cup
+--     else if (Set.member (x + 1, y + 2) cup) then
+--         dropAtLocation (x + 1, y + 2) cup
+--     else if (Set.member (x - 1, y + 2) cup) then
+--         dropAtLocation (x - 1, y + 2) cup
+--     else
+--         (x, y)
+
+
+{-| Complex helper function to sip at a location that allows animation
 Strategy:
-1. Get the bobas in range of the sip, convert to a list
-2. Recurse through the list, remove corresponding boba from the cup, pass the new cup to the next recursion
+1. Get the bobas in range of the sip, convert to a list, remove them
+2. Recursively drop bobas in the whole bottle, starting from the bottom
 -}
 sipAtLocation: Coord -> Float -> Game -> Game
 sipAtLocation sip force game =
@@ -219,22 +271,46 @@ sipAtLocation sip force game =
                 [] ->
                     cup
                 (x,y)::xs ->
-                    recursiveSip xs (Set.remove (dropAtLocation (x,y) cup) cup)
+                    recursiveSip xs (Set.remove (x,y) cup)
     in
-        { game | cup = recursiveSip bobasInRange game.cup, debug = bobasInRange}
+        { game | cup = recursiveSip bobasInRange game.cup, debug =  bobasInRange}
 
-{-| Helper function to drop bubbles from above to fill in the gap
+{-| Helper function to drop a specific row of bobas to fill gap below recursively
 -}
-dropAtLocation : Coord -> Set Coord -> Coord
-dropAtLocation (x, y) cup =
-    if (Set.member (x, y + 2) cup) then
-        dropAtLocation (x, y + 2) cup
-    else if (Set.member (x + 1, y + 2) cup) then
-        dropAtLocation (x + 1, y + 2) cup
-    else if (Set.member (x - 1, y + 2) cup) then
-        dropAtLocation (x - 1, y + 2) cup
-    else
-        (x, y)
+drop : Game -> Int -> Game
+drop game rowNumber =
+    let
+        bobaList = List.filter (\(x,y) -> y==(rowNumber*2+1)) (Set.toList game.cup)
+        recursiveDropBoba (x,y) cup = 
+            if y > 0 then
+                if     (Set.member (x,y-2) cup == False) 
+                    && (Set.member (x+1,y-2) cup == False) 
+                    && (Set.member (x-1,y-2) cup == False) 
+                    && (abs (x)) < (Maybe.withDefault 0 (List.Extra.getAt (y-2) game.bobasPerRow)) then
+                    recursiveDropBoba (x,y-2) (Set.insert (x,y-2) (Set.remove (x,y) cup))
+                else if (Set.member (x+1,y-2) cup == False) 
+                     && (Set.member (x+2,y-2) cup == False) 
+                     && (Set.member (x,y-2) cup == False) 
+                     && (abs (x+1)) < (Maybe.withDefault 0 (List.Extra.getAt (y-2) game.bobasPerRow)) then
+                    recursiveDropBoba (x+1,y-2) (Set.insert (x+1,y-2) (Set.remove (x,y) cup))
+                else if (Set.member (x-1,y-2) cup == False) 
+                     && (Set.member (x-2,y-2) cup == False) 
+                     && (Set.member (x,y-2) cup == False) 
+                     && (abs (x-1)) < (Maybe.withDefault 0 (List.Extra.getAt (y-2) game.bobasPerRow)) then
+                    recursiveDropBoba (x-1,y-2) (Set.insert (x-1,y-2) (Set.remove (x,y) cup))
+                else
+                    cup
+            else
+                cup
+
+        recursiveDrop bobas cup = 
+            case bobas of
+                [] ->
+                    cup
+                (x,y)::xs ->
+                    recursiveDrop xs (recursiveDropBoba (x,y) cup)
+    in
+        { game | cup = recursiveDrop bobaList game.cup }
 
 --------------------------------------------------------------------------------
 -- INTERFACE LOGIC
@@ -255,6 +331,7 @@ dropAtLocation (x, y) cup =
 type Msg
     = ClickedCell Coord
     | SetForce Float
+    | WaitForBobaDrop Int
     | PauseThenMakeComputerMove
     | ReceivedComputerMove Move
     | NoOp
@@ -279,16 +356,8 @@ update msg game =
             in
             case nextState.status of
                 Playing ->
-                    case game.settings.playMode of
-                        PlayHumanVsHuman ->
-                            nextState
-                                |> withCmd Cmd.none
-
-                        -- If the game is continuing and it's the computer's turn, then we need to generate a move.
-                        -- To make it more "human-like", pause for 250 milliseconds before generating a move.
-                        _ ->
-                            nextState
-                                |> withCmd (Task.perform (\_ -> PauseThenMakeComputerMove) (Process.sleep 1000))
+                    nextState
+                        |> withCmd (Task.perform (\_ -> WaitForBobaDrop 0) (Process.sleep 100))
 
                 Complete _ ->
                     nextState
@@ -297,6 +366,34 @@ update msg game =
         SetForce force ->
             { game | currentForce = force }
                 |> withCmd Cmd.none
+
+        WaitForBobaDrop rowNumber ->
+            case rowNumber of
+                10 ->
+                    case game.settings.playMode of
+                        PlayHumanVsHuman ->
+                            game
+                                |> withCmd Cmd.none
+
+                        PlayComputerVsMe ->
+                            if game.turn == Player1 then
+                                game
+                                    |> withCmd (Task.perform (\_ -> PauseThenMakeComputerMove) (Process.sleep 500))
+                            else
+                                game
+                                    |> withCmd Cmd.none
+
+                        PlayMeVsComputer ->
+                            if game.turn == Player1 then
+                                game
+                                    |> withCmd Cmd.none
+                            else
+                                game
+                                    |> withCmd (Task.perform (\_ -> PauseThenMakeComputerMove) (Process.sleep 500))
+                _ ->
+                    drop game rowNumber 
+                        |> withCmd (Task.perform (\_ -> WaitForBobaDrop (rowNumber + 1)) (Process.sleep 100))
+
 
         PauseThenMakeComputerMove ->
             case game.settings.computerDifficulty of
@@ -308,7 +405,7 @@ update msg game =
 
         ReceivedComputerMove move ->
             applyMove move game
-                |> withCmd Cmd.none
+                |> withCmd (Task.perform (\_ -> WaitForBobaDrop 0) (Process.sleep 100))
 
         NoOp ->
             game
@@ -500,7 +597,7 @@ viewBoba (x, y) =
     let
         -- The y center needs to be adjusted for viewing (as it currently is the bottom of the boba)
         cx = toFloat x
-        cy = toFloat y + 1.0 
+        cy = toFloat y
         -- Make the radius slightly more than 1 to make the boba more packed
         radius = 1.1
     in
@@ -545,7 +642,7 @@ viewClickablePoints game =
             let
                 rowWidth = game.cupShape.baseWidth + 2 * (toFloat y) * 2  * (tan (degrees game.settings.cupSlope))
             in
-            (toFloat x) >= (0 - rowWidth / 2) && (toFloat x) <= (rowWidth / 2) && (toFloat y) >= 0 && (toFloat y) <= game.cupShape.cupHeight
+            (toFloat x) > (0 - rowWidth / 2) && (toFloat x) < (rowWidth / 2) && (toFloat y) > 0 && (toFloat y) < game.cupShape.cupHeight
 
         withinForceField (x, y) =
             let
