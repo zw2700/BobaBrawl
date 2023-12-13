@@ -70,8 +70,20 @@ type alias Game =
     -- Cup is a set of coordinates indicating where boba are
     -- Note: if it's not in the set, it's empty
     , cup : Set Coord
+    , cupShape: Shape
     , currentForce: Float
     , debug: List Coord
+    }
+
+{-| Type for shape of the bottle.-}
+type alias Shape = 
+    {
+          maxRows: Float
+        , cupHeight: Float
+        , strawHeight: Float
+        , totalHeight: Float
+        , baseWidth: Float
+        , totalWidth: Float
     }
 
 
@@ -118,6 +130,36 @@ initCup settings =
     in
     recursivelyFillRow 0 Set.empty
 
+{-| Initialise the shape of the cup.-}
+init_cup_shape : Settings -> Shape
+init_cup_shape settings = 
+    let
+        -- SVG CONTAINER:
+        -- Assume that the maximum number of rows in the cup is 10 
+        maxRows = 10 
+        -- Then the height of the cup is given by number of rows times the diameter of a boba 
+        cupHeight = maxRows * 2
+        
+        -- TODO: Note you will probably need to increase the height of the viewbox to accommodate the straw eventually!
+        -- For now, I will make it 5 units (but you might want to define this differently)
+        strawHeight = 10
+        totalHeight = cupHeight + strawHeight
+        -- The width of the base of the cup is known in the settings
+        -- The width of the viewbox must accommodate the width of the top of the cup 
+        -- The width of the top can be found using trigonometry 
+        baseWidth = toFloat settings.cupWidth * 2 
+        -- Reduce the total width by the compress constant to make the boba more compressed
+        totalWidth =  baseWidth + 2 * (toFloat maxRows * 2  * (tan (degrees settings.cupSlope))) 
+    in
+    {
+        maxRows = maxRows
+        , cupHeight = cupHeight
+        , strawHeight = strawHeight
+        , totalHeight = totalHeight
+        , baseWidth = baseWidth
+        , totalWidth = totalWidth
+    }
+
 
 {-| Create the initial game data given the settings.
 -}
@@ -129,6 +171,7 @@ init settings =
             , status = Playing
             , turn = Player1
             , cup = initCup settings 
+            , cupShape = init_cup_shape settings
             , currentForce = settings.maxForce
             , debug = []
             }
@@ -476,31 +519,78 @@ viewClickablePoints game =
             |> List.map Tuple.first
             |> List.minimum
             |> Maybe.withDefault 0
+            |> (+) (ceiling (0-game.currentForce))
         maxX = 
             bobaList
             |> List.map Tuple.first
             |> List.maximum
             |> Maybe.withDefault 0
+            |> (+) (floor (game.currentForce))
             
-        minY = 0
+        minY = ceiling (0-game.currentForce)
+        -- minY = 0
         maxY = 
             bobaList
             |> List.map Tuple.second
             |> List.maximum
             |> Maybe.withDefault 0
+            |> (+) (floor (game.currentForce))
+
         allCoords = 
             List.range minX maxX
             |> List.map (\x -> List.range minY maxY |> List.map (\y -> (x, y)))
             |> List.concat
+
+        withinCup (x, y) = 
+            let
+                rowWidth = game.cupShape.baseWidth + 2 * (toFloat y) * 2  * (tan (degrees game.settings.cupSlope))
+            in
+            (toFloat x) >= (0 - rowWidth / 2) && (toFloat x) <= (rowWidth / 2) && (toFloat y) >= 0 && (toFloat y) <= game.cupShape.cupHeight
+
+        withinForceField (x, y) =
+            let
+                forceField = List.map (distance (x, y)) bobaList 
+            in
+            forceField
+                |> List.minimum
+                |> Maybe.withDefault 0
+                |> (>=) game.currentForce
+
         viewClickableCoord (x, y) = 
-            Svg.rectangle2d
+            Svg.circle2d
                 [ Svg.Attributes.fill "transparent"
                 , Svg.Attributes.class "clickable-point"
                 , Svg.Events.onClick (ClickedCell (x, y)) ]
-                (Rectangle2d.with { x1 = Pixels.pixels (toFloat x - 1.1), y1 = Pixels.pixels (toFloat y),  x2 = (Pixels.pixels (toFloat x - 1.1 + 2.2)), y2 = (Pixels.pixels (toFloat y + 2.2))} )
+                (Circle2d.atPoint (Point2d.pixels (toFloat x) (toFloat y)) (Pixels.float game.currentForce))
+        -- straw (x,y) = 
+        --     Svg.polygon2d
+        --         [ Svg.Attributes.fill "transparent"
+        --         , Svg.Attributes.class "straw"]
+        --         (Polygon2d.singleLoop
+        --             [Point2d.pixels (toFloat (x-1)) (toFloat y)
+        --             , Point2d.pixels (toFloat (x+1)) (toFloat y)
+        --             , Point2d.pixels (toFloat (x+1)) game.cupShape.totalHeight
+        --             , Point2d.pixels (toFloat (x-1)) game.cupShape.totalHeight ])
+        -- viewClickableCoord (x, y) = 
+        --     Svg.g []
+        --     [ Svg.circle2d
+        --         [ Svg.Attributes.fill "transparent"
+        --         , Svg.Attributes.class "clickable-point"
+        --         , Svg.Events.onClick (ClickedCell (x, y)) ]
+        --         (Circle2d.atPoint (Point2d.pixels (toFloat x) (toFloat y)) (Pixels.float game.currentForce))
+        --     , Svg.polygon2d
+        --         [ Svg.Attributes.fill "transparent"
+        --         , Svg.Attributes.class "straw"]
+        --         (Polygon2d.singleLoop
+        --             [Point2d.pixels (toFloat (x-1)) (toFloat y)
+        --             , Point2d.pixels (toFloat (x+1)) (toFloat y)
+        --             , Point2d.pixels (toFloat (x+1)) game.cupShape.totalHeight
+        --             , Point2d.pixels (toFloat (x-1)) game.cupShape.totalHeight ])]
     in
     allCoords 
-    |> List.map viewClickableCoord
+        |> List.filter withinCup
+        |> List.filter withinForceField
+        |> List.map viewClickableCoord
     
     
 
@@ -509,33 +599,17 @@ viewClickablePoints game =
 viewCup : Game -> Html Msg
 viewCup game =
     let
-        -- SVG CONTAINER:
-        -- Assume that the maximum number of rows in the cup is 10 
-        maxRows = 10 
-        -- Then the height of the cup is given by number of rows times the diameter of a boba 
-        cupHeight = maxRows * 2
-        
-        -- TODO: Note you will probably need to increase the height of the viewbox to accommodate the straw eventually!
-        -- For now, I will make it 5 units (but you might want to define this differently)
-        strawHeight = 10
-        totalHeight = cupHeight + strawHeight
-        -- The width of the base of the cup is known in the settings
-        -- The width of the viewbox must accommodate the width of the top of the cup 
-        -- The width of the top can be found using trigonometry 
-        baseWidth = toFloat game.settings.cupWidth * 2 
-        -- Reduce the total width by the compress constant to make the boba more compressed
-        totalWidth =  baseWidth + 2 * (toFloat maxRows * 2  * (tan (degrees game.settings.cupSlope))) 
         -- We can now set the viewbox height and width 
         -- Divide the width by two as we defined coordinate (0,0) to be the center of the base of the cup 
         -- Add a buffer value to prevent edges being cut off 
         buffer = 2
-        viewBoxHeight = String.fromFloat (totalHeight + buffer)
-        viewBoxWidth = String.fromFloat (totalWidth + buffer)
-        viewBoxXStart = String.fromFloat (0 - totalWidth / 2 - buffer)
+        viewBoxHeight = String.fromFloat (game.cupShape.totalHeight + buffer)
+        viewBoxWidth = String.fromFloat (game.cupShape.totalWidth + buffer)
+        viewBoxXStart = String.fromFloat (0 - game.cupShape.totalWidth / 2 - buffer)
         viewBoxYStart = String.fromFloat (0 - buffer)
         viewBoxString = String.join " " [viewBoxXStart, viewBoxYStart, viewBoxWidth, viewBoxHeight]
         topLeftFrame = 
-            Frame2d.atPoint (Point2d.pixels (buffer / 2) (totalHeight - buffer / 2))
+            Frame2d.atPoint (Point2d.pixels (buffer / 2) (game.cupShape.totalHeight - buffer / 2))
                 |> Frame2d.reverseY
 
         -- CUP TRAPEZIUM: 
@@ -548,10 +622,10 @@ viewCup game =
                 ]
                 -- The vertices of the trapezium are relatively straightforward after calculating our viewbox
                 (Polygon2d.singleLoop 
-                    [Point2d.pixels (0 - baseWidth / 2) 0
-                    , Point2d.pixels (baseWidth / 2) 0
-                    , Point2d.pixels (totalWidth / 2) cupHeight
-                    , Point2d.pixels (0 - totalWidth / 2) cupHeight ])
+                    [Point2d.pixels (0 - game.cupShape.baseWidth / 2) 0
+                    , Point2d.pixels (game.cupShape.baseWidth / 2) 0
+                    , Point2d.pixels (game.cupShape.totalWidth / 2) game.cupShape.cupHeight
+                    , Point2d.pixels (0 - game.cupShape.totalWidth / 2) game.cupShape.cupHeight ])
 
     in
     div
@@ -565,7 +639,7 @@ viewCup game =
                     []
                     [ Svg.g [] [ cupTrapezium ]
                     , Svg.g [] (List.map viewBoba (Set.toList game.cup))
-                    , Svg.g [] (viewClickablePoints game) ] )
+                    , Svg.g [] (viewClickablePoints game)] )
             ] ]
 
 viewForcePicker : Game -> Html Msg

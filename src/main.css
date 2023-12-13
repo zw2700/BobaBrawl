@@ -402,6 +402,11 @@ button#restart-button:active {
   opacity: 0.4;
 }
 
+.straw:hover{
+  fill: grey;
+  opacity: 1;
+}
+
 
 
 
