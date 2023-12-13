@@ -295,7 +295,12 @@ makeComputerMoveEasy game =
                         |> first
                         |> Maybe.withDefault (0,0)
                 )
-        force = Random.float 1 game.settings.maxForce
+        force = 
+            case game.settings.gameDifficulty of
+                Easy ->
+                    Random.float game.settings.maxForce game.settings.maxForce
+                Hard ->
+                    Random.float 1 game.settings.maxForce
     in
         Random.map2 Sip coord force
             |> Random.generate ReceivedComputerMove
@@ -311,10 +316,11 @@ makeComputerMoveHard : Game -> Cmd Msg
 makeComputerMoveHard game = 
     let 
         bobaList = Set.toList game.cup
+        minForce = if game.settings.gameDifficulty == Easy then game.settings.maxForce else 1
         recursiveHelper bobaIndex force = 
             if bobaIndex >= List.length bobaList then
                 makeComputerMoveEasy game
-            else if force < 1 then
+            else if force < minForce then
                 recursiveHelper (bobaIndex + 1) game.settings.maxForce
             else
                 let 
