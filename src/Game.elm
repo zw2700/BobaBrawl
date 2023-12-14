@@ -324,22 +324,35 @@ drop game rowNumber =
     let
         bobaList = List.filter (\(x,y) -> y==(rowNumber*2+1)) (Set.toList game.cup)
         recursiveDropBoba (x,y) cup = 
+            let 
+                rowCount = (Maybe.withDefault 0 (List.Extra.getAt (floor (toFloat (y-2) / 2)) game.bobasPerRow))
+            in
             if y > 0 then
                 if     (Set.member (x,y-2) cup == False) 
                     && (Set.member (x+1,y-2) cup == False) 
                     && (Set.member (x-1,y-2) cup == False) 
-                    && (abs (x)) < (Maybe.withDefault 0 (List.Extra.getAt (y-2) game.bobasPerRow)) then
+                    && (abs (x)) < rowCount then
                     recursiveDropBoba (x,y-2) (Set.insert (x,y-2) (Set.remove (x,y) cup))
                 else if (Set.member (x+1,y-2) cup == False) 
                      && (Set.member (x+2,y-2) cup == False) 
                      && (Set.member (x,y-2) cup == False) 
-                     && (abs (x+1)) < (Maybe.withDefault 0 (List.Extra.getAt (y-2) game.bobasPerRow)) then
+                     && (abs (x+1)) < rowCount then
                     recursiveDropBoba (x+1,y-2) (Set.insert (x+1,y-2) (Set.remove (x,y) cup))
                 else if (Set.member (x-1,y-2) cup == False) 
                      && (Set.member (x-2,y-2) cup == False) 
                      && (Set.member (x,y-2) cup == False) 
-                     && (abs (x-1)) < (Maybe.withDefault 0 (List.Extra.getAt (y-2) game.bobasPerRow)) then
+                     && (abs (x-1)) < rowCount then
                     recursiveDropBoba (x-1,y-2) (Set.insert (x-1,y-2) (Set.remove (x,y) cup))
+                else if (Set.member (x-2,y-2) cup == False) 
+                     && (Set.member (x-3,y-2) cup == False) 
+                     && (Set.member (x-1,y-2) cup == False) 
+                     && (abs (x-2)) < rowCount then
+                    recursiveDropBoba (x-2,y-2) (Set.insert (x-2,y-2) (Set.remove (x,y) cup))
+                else if (Set.member (x+2,y-2) cup == False) 
+                     && (Set.member (x+3,y-2) cup == False) 
+                     && (Set.member (x+1,y-2) cup == False) 
+                     && (abs (x+2)) < rowCount then
+                    recursiveDropBoba (x+2,y-2) (Set.insert (x+2,y-2) (Set.remove (x,y) cup))
                 else
                     cup
             else
