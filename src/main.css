@@ -402,11 +402,10 @@ button#restart-button:active {
   opacity: 0.4;
 }
 
-.straw:hover{
+.clickable-point-container:hover .straw {
   fill: grey;
-  opacity: 1;
+  opacity: 0.4;
 }
-
 
 
 

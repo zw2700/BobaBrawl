@@ -654,35 +654,20 @@ viewClickablePoints game =
                 |> (>=) game.currentForce
 
         viewClickableCoord (x, y) = 
-            Svg.circle2d
+            Svg.g [Svg.Attributes.class "clickable-point-container"]
+            [ Svg.circle2d
                 [ Svg.Attributes.fill "transparent"
                 , Svg.Attributes.class "clickable-point"
                 , Svg.Events.onClick (ClickedCell (x, y)) ]
                 (Circle2d.atPoint (Point2d.pixels (toFloat x) (toFloat y)) (Pixels.float game.currentForce))
-        -- straw (x,y) = 
-        --     Svg.polygon2d
-        --         [ Svg.Attributes.fill "transparent"
-        --         , Svg.Attributes.class "straw"]
-        --         (Polygon2d.singleLoop
-        --             [Point2d.pixels (toFloat (x-1)) (toFloat y)
-        --             , Point2d.pixels (toFloat (x+1)) (toFloat y)
-        --             , Point2d.pixels (toFloat (x+1)) game.cupShape.totalHeight
-        --             , Point2d.pixels (toFloat (x-1)) game.cupShape.totalHeight ])
-        -- viewClickableCoord (x, y) = 
-        --     Svg.g []
-        --     [ Svg.circle2d
-        --         [ Svg.Attributes.fill "transparent"
-        --         , Svg.Attributes.class "clickable-point"
-        --         , Svg.Events.onClick (ClickedCell (x, y)) ]
-        --         (Circle2d.atPoint (Point2d.pixels (toFloat x) (toFloat y)) (Pixels.float game.currentForce))
-        --     , Svg.polygon2d
-        --         [ Svg.Attributes.fill "transparent"
-        --         , Svg.Attributes.class "straw"]
-        --         (Polygon2d.singleLoop
-        --             [Point2d.pixels (toFloat (x-1)) (toFloat y)
-        --             , Point2d.pixels (toFloat (x+1)) (toFloat y)
-        --             , Point2d.pixels (toFloat (x+1)) game.cupShape.totalHeight
-        --             , Point2d.pixels (toFloat (x-1)) game.cupShape.totalHeight ])]
+            , Svg.polygon2d
+                [ Svg.Attributes.fill "transparent"
+                , Svg.Attributes.class "straw"]
+                (Polygon2d.singleLoop
+                    [Point2d.pixels (toFloat (x-1)) (toFloat y)
+                    , Point2d.pixels (toFloat (x+1)) (toFloat y)
+                    , Point2d.pixels (toFloat (x+1)) game.cupShape.totalHeight
+                    , Point2d.pixels (toFloat (x-1)) game.cupShape.totalHeight ])]
     in
     allCoords 
         |> List.filter withinCup
