@@ -655,6 +655,7 @@ viewStatus ({ settings } as game) =
             []
         ]
 
+
 {- View a single boba as an svg.  -}
 viewBoba : Coord -> Svg Msg
 viewBoba (x, y) = 
@@ -670,83 +671,6 @@ viewBoba (x, y) =
         [ Svg.Attributes.fill "black"]
         (Circle2d.atPoint (Point2d.pixels cx cy) (Pixels.float radius))
 
--- {-| View clickable points on the grid -}
--- viewClickablePoints : Game -> List (Svg Msg)
--- viewClickablePoints game = 
---     let
---         bobaList = Set.toList game.cup
---         minX = 
---             bobaList
---             |> List.map Tuple.first
---             |> List.minimum
---             |> Maybe.withDefault 0
---             |> (+) (ceiling (0-game.currentForce))
---         maxX = 
---             bobaList
---             |> List.map Tuple.first
---             |> List.maximum
---             |> Maybe.withDefault 0
---             |> (+) (floor (game.currentForce))
-            
---         minY = ceiling (0-game.currentForce)
---         maxY = 
---             bobaList
---             |> List.map Tuple.second
---             |> List.maximum
---             |> Maybe.withDefault 0
---             |> (+) (floor (game.currentForce))
-
---         allCoords = 
---             List.range minX maxX
---             |> List.map (\x -> List.range minY maxY |> List.map (\y -> (x, y)))
---             |> List.concat
-
---         withinCup (x, y) = 
---             let
---                 rowWidth = toFloat (Maybe.withDefault 0 (List.Extra.getAt (floor (toFloat (y) / 2)) game.bobasPerRow))
---             in
---             (toFloat (x)) > (0 - rowWidth) && (toFloat (x)) < (rowWidth) && (toFloat y) > 0 && (toFloat y) < game.cupShape.cupHeight
-
---         withinForceField (x, y) =
---             let
---                 forceField = List.map (distance (x, y)) bobaList 
---             in
---             forceField
---                 |> List.minimum
---                 |> Maybe.withDefault 0
---                 |> (>=) game.currentForce
-
---         colour =
---             case game.status of
---                 Complete (Winner Player1) ->
---                     game.settings.player1Colour |> Settings.colourToString
-
---                 Complete (Winner Player2) ->
---                     game.settings.player2Colour |> Settings.colourToString
-
---                 Playing ->
---                     currentColour game |> Settings.colourToString
-
---         viewClickableCoord (x, y) = 
---             Svg.g [Svg.Attributes.class "clickable-point-container"]
---             [ Svg.circle2d
---                 [ Svg.Attributes.fill "transparent"
---                 , Svg.Attributes.class ("clickable-point " ++ colour)
---                 , Svg.Events.onClick (ClickedCell (x, y)) ]
---                 (Circle2d.atPoint (Point2d.pixels (toFloat x) (toFloat y)) (Pixels.float game.currentForce))
---             , Svg.polygon2d
---                 [ Svg.Attributes.fill "transparent"
---                 , Svg.Attributes.class ("straw " ++ colour)]
---                 (Polygon2d.singleLoop
---                     [Point2d.pixels (toFloat (x-1)) (toFloat y)
---                     , Point2d.pixels (toFloat (x+1)) (toFloat (y-1))
---                     , Point2d.pixels (toFloat (x+1)) game.cupShape.totalHeight
---                     , Point2d.pixels (toFloat (x-1)) game.cupShape.totalHeight ])]
---     in
---     allCoords 
---         |> List.filter withinCup
---         |> List.filter withinForceField
---         |> List.map viewClickableCoord
     
 {-| View clickable points on the grid -}
 viewClickablePoints : Game -> Coord -> List (Svg Msg)
@@ -782,8 +706,8 @@ viewClickablePoints game coord =
             Svg.g [Svg.Attributes.class "clickable-point-container"]
             [ Svg.circle2d
                 [ Svg.Attributes.fill colour
-                , Svg.Attributes.class "clickable-point"
-                , Svg.Events.onClick (ClickedCell (x, y)) ]
+                , Svg.Attributes.class "clickable-point" 
+                ]
                 (Circle2d.atPoint (Point2d.pixels (toFloat x) (toFloat y)) (Pixels.float game.currentForce))
             , Svg.polygon2d
                 [ Svg.Attributes.fill colour
@@ -840,7 +764,9 @@ viewCup game =
         [ Svg.svg 
             [ id "cup"
             , Svg.Attributes.width "600"
-            , Svg.Attributes.viewBox viewBoxString ] 
+            , Svg.Attributes.viewBox viewBoxString 
+            , Svg.Events.onClick (ClickedCell game.mouseCoordinate)
+            ] 
             [ Svg.relativeTo topLeftFrame
                 ( Svg.g 
                     []
