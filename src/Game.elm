@@ -93,85 +93,15 @@ type alias Shape =
         , totalWidth: Float
     }
 
-
-{-| The type of mouse movement data
--}
-type alias MouseMoveData =
-    { offsetX : Int
-    , offsetY : Int
-    }
-
-{-| Decode mouse move data on mouse move
--}
-mouseMoveDecoder : Decoder MouseMoveData
-mouseMoveDecoder =
-    Decode.map2 MouseMoveData
-        (Decode.at [ "clientX" ] Decode.int)
-        (Decode.at [ "clientY" ] Decode.int)
-
-{-| Convert mouse move data to a coordinate
--}
-mouseMoveDataToCoord : Game -> Dom.Element -> MouseMoveData -> Coord
-mouseMoveDataToCoord game boardElement data =
-    let
-        x =
-            data.offsetX
-
-        y =
-            data.offsetY
-
-        dx =
-            toFloat x - boardElement.element.x
-
-        dy =
-            toFloat y - boardElement.element.y
-
-        height =
-            boardElement.element.height
-
-        width =
-            boardElement.element.width
-
-        rowCount = 
-            20 - ceiling (dy / (height / 20))
-
-        bobaWidth = 
-            width  / game.cupShape.totalWidth
-
-        rowIndex = 
-            let 
-                sideWidth = ((dx - (width / 2) - bobaWidth / 2) / bobaWidth)
-            in
-            if sideWidth > 0 then
-                floor sideWidth
-            else
-                ceiling sideWidth
-
-        coord =
-            (rowIndex, rowCount)
-    in
-    coord
-
-
-{-| Helper function to calculate number of bobas in a row.-}
-calculateRowCount: Settings -> Int -> Int
-calculateRowCount settings rowNumber = 
-    let
-        baseWidth = toFloat (settings.cupWidth * 2)
-        -- additional width of the current row is given by twice the width of a triangle with height (rowNumber * 2) and angle cupSlope
-        extraWidth = 2 * ( toFloat rowNumber * 2) * (tan (degrees settings.cupSlope))
-        rowWidth = baseWidth + extraWidth
-        numBoba = floor (rowWidth / 2)
-    in
-    numBoba
-
-
+--------------------------------------------------------------------------------
+-- Initialization Functions
+--------------------------------------------------------------------------------
 
 {-| Initialise the number of bobas per row.-}
 init_bpr : Settings -> List Int
 init_bpr settings = 
     List.range 0 9
-        |> List.map (calculateRowCount settings)
+        |> List.map (Settings.calculateRowCount settings.cupWidth settings.cupSlope)
 
 
 {-| Initialise the set of boba in the cup. 
@@ -185,8 +115,8 @@ Strategy:
 3. Place the boba in this row 
 4. Recurse to the next row until all boba have been used
 -}
-initCup : Settings -> Set Coord
-initCup settings = 
+initCup : Settings -> List Int -> Set Coord
+initCup settings bobasPerRow = 
     let
         -- Recursive function to implement the strategy above
         -- Maintain an accumulator of all the boba generated so far
@@ -197,7 +127,7 @@ initCup settings =
             -- Otherwise, we begin generating boba for a single row
             else 
                 let
-                    numBoba = calculateRowCount settings rowNumber
+                    numBoba = Maybe.withDefault 0 (List.Extra.getAt rowNumber bobasPerRow)
                     -- Place boba in this row (starting from x = 0 - numBoba)
                     newBoba = 
                         List.range 0 (numBoba - 1) 
@@ -244,13 +174,14 @@ init_cup_shape settings =
 init : Settings -> ( Game, Cmd Msg )
 init settings =
     let
+        bpr = init_bpr settings
         initialGame =
             { settings = settings
             , status = Playing
             , turn = Player1
-            , cup = initCup settings 
+            , cup = initCup settings bpr
             , cupShape = init_cup_shape settings
-            , bobasPerRow = init_bpr settings
+            , bobasPerRow = bpr
             , currentForce = settings.maxForce
             , mouseCoordinate = (0,0)
             , boardElement = Nothing
@@ -366,6 +297,64 @@ drop game rowNumber =
                     recursiveDrop xs (recursiveDropBoba (x,y) cup)
     in
         { game | cup = recursiveDrop bobaList game.cup }
+
+{-| The type of mouse movement data
+-}
+type alias MouseMoveData =
+    { offsetX : Int
+    , offsetY : Int
+    }
+
+{-| Decode mouse move data on mouse move
+-}
+mouseMoveDecoder : Decoder MouseMoveData
+mouseMoveDecoder =
+    Decode.map2 MouseMoveData
+        (Decode.at [ "clientX" ] Decode.int)
+        (Decode.at [ "clientY" ] Decode.int)
+
+{-| Convert mouse move data to a coordinate
+-}
+mouseMoveDataToCoord : Game -> Dom.Element -> MouseMoveData -> Coord
+mouseMoveDataToCoord game boardElement data =
+    let
+        x =
+            data.offsetX
+
+        y =
+            data.offsetY
+
+        dx =
+            toFloat x - boardElement.element.x
+
+        dy =
+            toFloat y - boardElement.element.y
+
+        height =
+            boardElement.element.height
+
+        width =
+            boardElement.element.width
+
+        rowCount = 
+            20 - ceiling (dy / (height / 20))
+
+        bobaWidth = 
+            width  / game.cupShape.totalWidth
+
+        rowIndex = 
+            let 
+                sideWidth = ((dx - (width / 2) - bobaWidth / 2) / bobaWidth)
+            in
+            if sideWidth > 0 then
+                floor sideWidth
+            else
+                ceiling sideWidth
+
+        coord =
+            (rowIndex, rowCount)
+    in
+    coord
 
 --------------------------------------------------------------------------------
 -- INTERFACE LOGIC

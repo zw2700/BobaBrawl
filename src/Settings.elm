@@ -168,6 +168,7 @@ pickers : Settings -> List SettingPickerItem
 pickers settings =
     let 
         forceLabel = if settings.gameDifficulty == Easy then "Force" else "Max Force"
+        maxBobaCount = calculateMaxBobaCount settings.cupWidth settings.cupSlope
     in
     [ pickChoiceDropdown
         { label = "Play Mode"
@@ -208,7 +209,7 @@ pickers settings =
         { label = "Bubble Count"
         , value = settings.bubbleCount
         , min = 5
-        , max = 50
+        , max = maxBobaCount
         , onChange = SetBubbleCount
         }
     , inputFloatRange
@@ -242,6 +243,31 @@ pickers settings =
         , options = [ ( "Red", Red ), ( "Green", Green ), ( "Blue", Blue ) ]
         }
     ]
+
+
+--------------------------------------------------------------------------------
+-- Helper functions
+-- Some helper functions to help determine limits on parameters
+--------------------------------------------------------------------------------
+
+{-| Helper function to calculate maximum number of bobas in a cup.-}
+calculateMaxBobaCount: Int -> Float -> Int
+calculateMaxBobaCount cupWidth cupSlope = 
+    List.range 0 9
+        |> List.map (calculateRowCount cupWidth cupSlope)
+        |> List.foldl (+) 0
+
+{-| Helper function to calculate number of bobas in a row.-}
+calculateRowCount: Int -> Float -> Int -> Int
+calculateRowCount cupWidth cupSlope rowNumber = 
+    let
+        baseWidth = toFloat (cupWidth * 2)
+        -- additional width of the current row is given by twice the width of a triangle with height (rowNumber * 2) and angle cupSlope
+        extraWidth = 2 * ( toFloat rowNumber * 2) * (tan (degrees cupSlope))
+        rowWidth = baseWidth + extraWidth
+        numBoba = floor (rowWidth / 2)
+    in
+    numBoba
 
 --------------------------------------------------------------------------------
 -- SUPPORTING TYPES
