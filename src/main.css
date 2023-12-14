@@ -220,6 +220,22 @@ button.selected {
 }
 
 /* --------------------------------------------------------------------------- */
+/* ERROR SCREEN COMPONENT-SPECIFIC STYLES
+/* --------------------------------------------------------------------------- */
+
+#error-modal{
+  padding-top: 50vh;
+  padding-bottom: 50vh;
+  text-align: center;
+}
+
+#error-modal-body{
+  color: red;
+  font-weight: bold;
+  font-size: 3em;
+}
+
+/* --------------------------------------------------------------------------- */
 /* GAME SCREEN COMPONENT-SPECIFIC STYLES
 /* --------------------------------------------------------------------------- */
 

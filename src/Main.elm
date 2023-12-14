@@ -34,6 +34,7 @@ part of its model).
 -}
 type Model
     = SettingsScreen Settings
+    | ErrorScreen String Settings
     | GameplayScreen Game
 
 
@@ -101,10 +102,26 @@ update msg screen =
 
                 -- When the user clicks Start Game, we initialize a new Game with the current settings.
                 ClickedStartGame ->
-                    Game.init settings
-                        |> mapGameCmd
+                    if settings.bubbleCount > Settings.calculateMaxBobaCount settings.cupWidth settings.cupSlope then
+                        ErrorScreen "Too many bobas! Reduce the number of boba pearls or increase the cup size." settings
+                            |> withCmd Cmd.none
+                    else
+                        Game.init settings
+                            |> mapGameCmd
 
                 -- You shouldn't get any Gameplay messages from the Settings screen, but if you do, just return the current screen as-is.
+                _ ->
+                    screen
+                        |> withCmd Cmd.none
+
+        ErrorScreen error settings ->
+            case msg of
+                 -- When the user clicks Restart, we go back to the Settings screen with the current settings.
+                ClickedRestart ->
+                    SettingsScreen settings
+                        |> withCmd Cmd.none
+
+                -- You shouldn't get any Settings messages from the Gameplay screen, but if you do, just return the current screen as-is.
                 _ ->
                     screen
                         |> withCmd Cmd.none
@@ -174,6 +191,12 @@ view screen =
                     , div [ id "settings-modal-body" ] [ Settings.view settings |> Html.map SettingsMsg ]
                     , div [ id "settings-modal-footer" ] [ button [ id "start-game-button", onClick ClickedStartGame ] [ text "Start Game" ] ]
                     ]
+                ]
+
+        ErrorScreen error _ ->
+            div [ id "error-screen", class "screen" ]
+                [ div [ id "error-modal" ] [ div [ id "error-modal-body" ] [ text error ] ]
+                , div [ id "restart-button-container" ] [ button [ id "restart-button", onClick ClickedRestart ] [ text "Restart" ] ]
                 ]
 
         GameplayScreen game ->
