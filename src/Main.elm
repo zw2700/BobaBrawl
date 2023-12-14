@@ -10,6 +10,7 @@ perspective is actually in the `Settings.elm` and `Game.elm` files.
 -}
 
 import Browser
+import Browser.Events
 import Common exposing (..)
 import Game exposing (..)
 import Html exposing (..)
@@ -204,6 +205,6 @@ main =
         { view = view
         , init = \_ -> init
         , update = update
-        , subscriptions = always Sub.none
+        , subscriptions = always (Browser.Events.onResize (\x y -> Game.ResizedWindow x y |> GameplayMsg))
         }
 

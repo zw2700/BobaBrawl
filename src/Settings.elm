@@ -216,7 +216,7 @@ pickers settings =
         , value = settings.maxForce
         , step = 0.5
         , min = 1.0
-        , max = 10.0
+        , max = 5.0
         , onChange = SetMaxForce
         }
     , inputString
