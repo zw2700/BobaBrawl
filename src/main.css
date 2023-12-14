@@ -393,18 +393,45 @@ button#restart-button:active {
   z-index: 0;
 }
 
-.clickable-point {
+.clickable-point.red:hover {
   cursor: pointer;
+  opacity: 0.5;
+  color: #dc2626;
 }
 
-.clickable-point:hover {
-  fill: grey;
-  opacity: 0.4;
+.clickable-point.blue:hover {
+  cursor: pointer;
+  opacity: 0.5;
+  color: #0284c7;
 }
 
-.clickable-point-container:hover .straw {
-  fill: grey;
-  opacity: 0.4;
+.clickable-point.green:hover {
+  cursor: pointer;
+  opacity: 0.5;
+  color: #16a34a;
+}
+
+.clickable-point{
+  opacity: 0.5
+}
+
+.straw{
+  opacity: 0.9;
+}
+
+.straw.red:hover{
+  opacity: 0.9;
+  color: #dc2626;
+}
+
+.straw.blue:hover{
+  opacity: 0.9;
+  color: #0284c7;
+}
+
+.straw.green:hover{
+  opacity: 0.9;
+  color: #16a34a;
 }
 
 

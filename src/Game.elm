@@ -15,11 +15,13 @@ You'll probably want to implement a lot of helper functions to make the above ea
 -}
 
 import Array exposing (..)
+import Browser.Dom as Dom
 import Common exposing (..)
 import Dict exposing (..)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
+import Json.Decode as Decode exposing (Decoder)
 import List exposing (..)
 import List.Extra exposing (..)
 import Process
@@ -74,8 +76,11 @@ type alias Game =
     , cupShape: Shape
     , bobasPerRow: List Int
     , currentForce: Float
-    , debug: List Coord
+    , mouseCoordinate: Coord
+    , boardElement : Maybe Dom.Element
+    , debug: List Int
     }
+
 
 {-| Type for shape of the bottle.-}
 type alias Shape = 
@@ -88,6 +93,66 @@ type alias Shape =
         , totalWidth: Float
     }
 
+
+{-| The type of mouse movement data
+-}
+type alias MouseMoveData =
+    { offsetX : Int
+    , offsetY : Int
+    }
+
+{-| Decode mouse move data on mouse move
+-}
+mouseMoveDecoder : Decoder MouseMoveData
+mouseMoveDecoder =
+    Decode.map2 MouseMoveData
+        (Decode.at [ "clientX" ] Decode.int)
+        (Decode.at [ "clientY" ] Decode.int)
+
+{-| Convert mouse move data to a coordinate
+-}
+mouseMoveDataToCoord : Game -> Dom.Element -> MouseMoveData -> Coord
+mouseMoveDataToCoord game boardElement data =
+    let
+        x =
+            data.offsetX
+
+        y =
+            data.offsetY
+
+        dx =
+            toFloat x - boardElement.element.x
+
+        dy =
+            toFloat y - boardElement.element.y
+
+        height =
+            boardElement.element.height
+
+        width =
+            boardElement.element.width
+
+        rowCount = 
+            20 - ceiling (dy / (height / 20))
+
+        bobaWidth = 
+            width  / game.cupShape.totalWidth
+
+        rowIndex = 
+            let 
+                sideWidth = ((dx - (width / 2) - bobaWidth / 2) / bobaWidth)
+            in
+            if sideWidth > 0 then
+                floor sideWidth
+            else
+                ceiling sideWidth
+
+        coord =
+            (rowIndex, rowCount)
+    in
+    coord
+
+
 {-| Helper function to calculate number of bobas in a row.-}
 calculateRowCount: Settings -> Int -> Int
 calculateRowCount settings rowNumber = 
@@ -99,6 +164,8 @@ calculateRowCount settings rowNumber =
         numBoba = floor (rowWidth / 2)
     in
     numBoba
+
+
 
 {-| Initialise the number of bobas per row.-}
 init_bpr : Settings -> List Int
@@ -143,6 +210,7 @@ initCup settings =
     in
     recursivelyFillRow 0 Set.empty
 
+
 {-| Initialise the shape of the cup.-}
 init_cup_shape : Settings -> Shape
 init_cup_shape settings = 
@@ -184,20 +252,26 @@ init settings =
             , cupShape = init_cup_shape settings
             , bobasPerRow = init_bpr settings
             , currentForce = settings.maxForce
+            , mouseCoordinate = (0,0)
+            , boardElement = Nothing
             , debug = [] -- for debug purposes
             }
+
+        getBoardTask =
+            Task.attempt ReceivedBoardElement (Dom.getElement "trapezoid")
+
+        initialTask =
+            case settings.playMode of
+                PlayComputerVsMe ->
+                    Cmd.batch
+                        [ getBoardTask
+                        , Task.perform (\_ -> PauseThenMakeComputerMove) (Process.sleep 500)
+                        ]
+
+                _ ->
+                    getBoardTask
     in
-    case settings.playMode of
-        PlayHumanVsHuman ->
-            ( initialGame, Cmd.none )
-
-        PlayComputerVsMe ->
-            ( initialGame, Task.perform (\_ -> PauseThenMakeComputerMove) (Process.sleep 500) )
-
-        PlayMeVsComputer ->
-            ( initialGame, Cmd.none )
-
-
+    (initialGame, initialTask)
 
 
 --------------------------------------------------------------------------------
@@ -225,38 +299,6 @@ applyMove move game =
                 { newGame | turn = opponent game.turn }
 
 
--- {-| Simple helper function to sip at a location
--- Strategy:
--- 1. Get the bobas in range of the sip, convert to a list
--- 2. Recurse through the list, remove corresponding boba from the cup, pass the new cup to the next recursion
--- -}
--- sipAtLocation: Coord -> Float -> Game -> Game
--- sipAtLocation sip force game =
---     let
---         bobasInRange = sortByWith Tuple.second descending (Set.toList (Set.filter (\c -> (distance c sip) <= force) game.cup))
---         recursiveSip bobas cup = 
---             case bobas of
---                 [] ->
---                     cup
---                 (x,y)::xs ->
---                     recursiveSip xs (Set.remove (dropAtLocation (x,y) cup) cup)
---     in
---         { game | cup = recursiveSip bobasInRange game.cup, debug = bobasInRange}
-
--- {-| Helper function to drop bubbles from above to fill in the gap
--- -}
--- dropAtLocation : Coord -> Set Coord -> Coord
--- dropAtLocation (x, y) cup =
---     if (Set.member (x, y + 2) cup) then
---         dropAtLocation (x, y + 2) cup
---     else if (Set.member (x + 1, y + 2) cup) then
---         dropAtLocation (x + 1, y + 2) cup
---     else if (Set.member (x - 1, y + 2) cup) then
---         dropAtLocation (x - 1, y + 2) cup
---     else
---         (x, y)
-
-
 {-| Complex helper function to sip at a location that allows animation
 Strategy:
 1. Get the bobas in range of the sip, convert to a list, remove them
@@ -273,7 +315,7 @@ sipAtLocation sip force game =
                 (x,y)::xs ->
                     recursiveSip xs (Set.remove (x,y) cup)
     in
-        { game | cup = recursiveSip bobasInRange game.cup, debug =  bobasInRange}
+        { game | cup = recursiveSip bobasInRange game.cup}
 
 {-| Helper function to drop a specific row of bobas to fill gap below recursively
 -}
@@ -332,6 +374,9 @@ type Msg
     = ClickedCell Coord
     | SetForce Float
     | WaitForBobaDrop Int
+    | MouseMoved MouseMoveData
+    | ReceivedBoardElement (Result Dom.Error Dom.Element)
+    | ResizedWindow Int Int
     | PauseThenMakeComputerMove
     | ReceivedComputerMove Move
     | NoOp
@@ -394,6 +439,25 @@ update msg game =
                     drop game rowNumber 
                         |> withCmd (Task.perform (\_ -> WaitForBobaDrop (rowNumber + 1)) (Process.sleep 100))
 
+        MouseMoved data ->
+            case game.boardElement of
+                Just boardElement ->
+                    { game | mouseCoordinate = mouseMoveDataToCoord game boardElement data }
+                        |> withCmd Cmd.none
+                Nothing ->
+                    game |> withCmd Cmd.none
+
+        ReceivedBoardElement result ->
+            case result of
+                Ok element ->
+                    { game | boardElement = Just element }
+                        |> withCmd Cmd.none
+                Err _ ->
+                    ( game, Cmd.none )
+
+        ResizedWindow width height ->
+            game
+                |> withCmd (Task.attempt ReceivedBoardElement (Dom.getElement "trapezoid"))
 
         PauseThenMakeComputerMove ->
             case game.settings.computerDifficulty of
@@ -606,74 +670,134 @@ viewBoba (x, y) =
         [ Svg.Attributes.fill "black"]
         (Circle2d.atPoint (Point2d.pixels cx cy) (Pixels.float radius))
 
-{-| View clickable points on the grid -}
-viewClickablePoints : Game -> List (Svg Msg)
-viewClickablePoints game = 
-    let
-        bobaList = Set.toList game.cup
-        minX = 
-            bobaList
-            |> List.map Tuple.first
-            |> List.minimum
-            |> Maybe.withDefault 0
-            |> (+) (ceiling (0-game.currentForce))
-        maxX = 
-            bobaList
-            |> List.map Tuple.first
-            |> List.maximum
-            |> Maybe.withDefault 0
-            |> (+) (floor (game.currentForce))
+-- {-| View clickable points on the grid -}
+-- viewClickablePoints : Game -> List (Svg Msg)
+-- viewClickablePoints game = 
+--     let
+--         bobaList = Set.toList game.cup
+--         minX = 
+--             bobaList
+--             |> List.map Tuple.first
+--             |> List.minimum
+--             |> Maybe.withDefault 0
+--             |> (+) (ceiling (0-game.currentForce))
+--         maxX = 
+--             bobaList
+--             |> List.map Tuple.first
+--             |> List.maximum
+--             |> Maybe.withDefault 0
+--             |> (+) (floor (game.currentForce))
             
-        minY = ceiling (0-game.currentForce)
-        -- minY = 0
-        maxY = 
-            bobaList
-            |> List.map Tuple.second
-            |> List.maximum
-            |> Maybe.withDefault 0
-            |> (+) (floor (game.currentForce))
+--         minY = ceiling (0-game.currentForce)
+--         maxY = 
+--             bobaList
+--             |> List.map Tuple.second
+--             |> List.maximum
+--             |> Maybe.withDefault 0
+--             |> (+) (floor (game.currentForce))
 
-        allCoords = 
-            List.range minX maxX
-            |> List.map (\x -> List.range minY maxY |> List.map (\y -> (x, y)))
-            |> List.concat
+--         allCoords = 
+--             List.range minX maxX
+--             |> List.map (\x -> List.range minY maxY |> List.map (\y -> (x, y)))
+--             |> List.concat
 
+--         withinCup (x, y) = 
+--             let
+--                 rowWidth = toFloat (Maybe.withDefault 0 (List.Extra.getAt (floor (toFloat (y) / 2)) game.bobasPerRow))
+--             in
+--             (toFloat (x)) > (0 - rowWidth) && (toFloat (x)) < (rowWidth) && (toFloat y) > 0 && (toFloat y) < game.cupShape.cupHeight
+
+--         withinForceField (x, y) =
+--             let
+--                 forceField = List.map (distance (x, y)) bobaList 
+--             in
+--             forceField
+--                 |> List.minimum
+--                 |> Maybe.withDefault 0
+--                 |> (>=) game.currentForce
+
+--         colour =
+--             case game.status of
+--                 Complete (Winner Player1) ->
+--                     game.settings.player1Colour |> Settings.colourToString
+
+--                 Complete (Winner Player2) ->
+--                     game.settings.player2Colour |> Settings.colourToString
+
+--                 Playing ->
+--                     currentColour game |> Settings.colourToString
+
+--         viewClickableCoord (x, y) = 
+--             Svg.g [Svg.Attributes.class "clickable-point-container"]
+--             [ Svg.circle2d
+--                 [ Svg.Attributes.fill "transparent"
+--                 , Svg.Attributes.class ("clickable-point " ++ colour)
+--                 , Svg.Events.onClick (ClickedCell (x, y)) ]
+--                 (Circle2d.atPoint (Point2d.pixels (toFloat x) (toFloat y)) (Pixels.float game.currentForce))
+--             , Svg.polygon2d
+--                 [ Svg.Attributes.fill "transparent"
+--                 , Svg.Attributes.class ("straw " ++ colour)]
+--                 (Polygon2d.singleLoop
+--                     [Point2d.pixels (toFloat (x-1)) (toFloat y)
+--                     , Point2d.pixels (toFloat (x+1)) (toFloat (y-1))
+--                     , Point2d.pixels (toFloat (x+1)) game.cupShape.totalHeight
+--                     , Point2d.pixels (toFloat (x-1)) game.cupShape.totalHeight ])]
+--     in
+--     allCoords 
+--         |> List.filter withinCup
+--         |> List.filter withinForceField
+--         |> List.map viewClickableCoord
+    
+{-| View clickable points on the grid -}
+viewClickablePoints : Game -> Coord -> List (Svg Msg)
+viewClickablePoints game coord = 
+    let
         withinCup (x, y) = 
             let
-                rowWidth = game.cupShape.baseWidth + 2 * (toFloat y) * 2  * (tan (degrees game.settings.cupSlope))
+                rowWidth = toFloat (Maybe.withDefault 0 (List.Extra.getAt (floor (toFloat (y) / 2)) game.bobasPerRow))
             in
-            (toFloat x) > (0 - rowWidth / 2) && (toFloat x) < (rowWidth / 2) && (toFloat y) > 0 && (toFloat y) < game.cupShape.cupHeight
+            (toFloat (x)) > (0 - rowWidth) && (toFloat (x)) < (rowWidth) && (toFloat y) > 0 && (toFloat y) < game.cupShape.cupHeight
 
         withinForceField (x, y) =
             let
-                forceField = List.map (distance (x, y)) bobaList 
+                forceField = List.map (distance (x, y)) (Set.toList game.cup) 
             in
             forceField
                 |> List.minimum
                 |> Maybe.withDefault 0
                 |> (>=) game.currentForce
 
+        colour =
+            case game.status of
+                Complete (Winner Player1) ->
+                    game.settings.player1Colour |> Settings.colourToString
+
+                Complete (Winner Player2) ->
+                    game.settings.player2Colour |> Settings.colourToString
+
+                Playing ->
+                    currentColour game |> Settings.colourToString
+
         viewClickableCoord (x, y) = 
             Svg.g [Svg.Attributes.class "clickable-point-container"]
             [ Svg.circle2d
-                [ Svg.Attributes.fill "transparent"
+                [ Svg.Attributes.fill colour
                 , Svg.Attributes.class "clickable-point"
                 , Svg.Events.onClick (ClickedCell (x, y)) ]
                 (Circle2d.atPoint (Point2d.pixels (toFloat x) (toFloat y)) (Pixels.float game.currentForce))
             , Svg.polygon2d
-                [ Svg.Attributes.fill "transparent"
+                [ Svg.Attributes.fill colour
                 , Svg.Attributes.class "straw"]
                 (Polygon2d.singleLoop
                     [Point2d.pixels (toFloat (x-1)) (toFloat y)
-                    , Point2d.pixels (toFloat (x+1)) (toFloat y)
+                    , Point2d.pixels (toFloat (x+1)) (toFloat (y-1))
                     , Point2d.pixels (toFloat (x+1)) game.cupShape.totalHeight
                     , Point2d.pixels (toFloat (x-1)) game.cupShape.totalHeight ])]
     in
-    allCoords 
-        |> List.filter withinCup
-        |> List.filter withinForceField
-        |> List.map viewClickableCoord
-    
+    if withinCup coord && withinForceField coord then
+        [viewClickableCoord coord]
+    else
+        []
     
 
 {-| Actual game view
@@ -701,6 +825,7 @@ viewCup game =
                 [ Svg.Attributes.stroke "black"
                 , Svg.Attributes.fill "white" 
                 , Svg.Attributes.strokeWidth "0.2"
+                , id "trapezoid"
                 ]
                 -- The vertices of the trapezium are relatively straightforward after calculating our viewbox
                 (Polygon2d.singleLoop 
@@ -711,7 +836,7 @@ viewCup game =
 
     in
     div
-        [ id "cup-container" ]
+        [ id "cup-container", on "mousemove" (Decode.map MouseMoved mouseMoveDecoder)]
         [ Svg.svg 
             [ id "cup"
             , Svg.Attributes.width "600"
@@ -721,7 +846,7 @@ viewCup game =
                     []
                     [ Svg.g [] [ cupTrapezium ]
                     , Svg.g [] (List.map viewBoba (Set.toList game.cup))
-                    , Svg.g [] (viewClickablePoints game)] )
+                    , Svg.g [] (viewClickablePoints game game.mouseCoordinate)] )
             ] ]
 
 viewForcePicker : Game -> Html Msg
