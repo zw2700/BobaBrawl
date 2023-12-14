@@ -1,0 +1,673 @@
+/* --------------------------------------------------------------------------- */
+/* ELM DEVELOPMENT SERVER STYLES
+/* --------------------------------------------------------------------------- */
+
+[data-elm-hot="true"] {
+  height: inherit;
+}
+
+/* --------------------------------------------------------------------------- */
+/* RESET PADDING AND BOX-SIZING */
+/* --------------------------------------------------------------------------- */
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: "Segoe UI", Arial, Helvetica, system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------- */
+/* STYLED DEFAULTS
+/* --------------------------------------------------------------------------- */
+
+input, select {
+  padding: 5px;
+  font-family: inherit;
+}
+
+select {
+  font-size: 10pt;
+}
+
+input[type="text"] {
+  font-size: 10pt;
+  padding: 6px 8px;
+}
+
+button {
+  background: #d1d5db;
+  font-family: inherit;
+  font-size: 10pt;
+  color: #111827;
+  padding: 0.5rem;
+  border-radius: 5px;
+  border: none;
+  border-bottom: 2px solid #9ca3af;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-bottom: 4px solid #9ca3af;
+  margin-top: 0px;
+}
+
+button:active {
+  border-bottom: 0px;
+  margin-top: 4px;
+}
+
+button.selected {
+  border-bottom: 0px;
+  margin-top: 4px;
+  background: #6b7280;
+  color: white;
+}
+
+.screen {
+  background-color: #f1f5f9;
+  opacity: 0.8;
+  background-size: 10px 10px;
+  background-image: repeating-linear-gradient(45deg, #cbd5e1 0, #cbd5e1 1px, #f1f5f9 0, #f1f5f9 50%);
+}
+
+
+/* --------------------------------------------------------------------------- */
+/* SETTINGS SCREEN COMPONENT-SPECIFIC STYLES
+/* --------------------------------------------------------------------------- */
+
+#settings-screen {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.gomoku-title {
+  font-family: cursive;
+  font-weight: bold;
+  font-size: 1.1em;
+  letter-spacing: 1px;
+  margin-left: 5px;
+}
+
+#settings-modal {
+  padding: 1rem 2rem 2rem 2rem;
+  width: 600px;
+  background: white;
+  position: relative;
+  border-radius: 2px;
+  border: 1px solid #94a3b8;
+  border-top: 5px solid #64748b;
+}
+
+#settings-modal::after {
+  content: "";
+  position: absolute;
+  top: 0px;
+  left: 0;
+  background: #64748b;
+  border-top: 7px solid #64748b;
+  border-left: 7px solid #64748b;
+  border-bottom: 7px solid white;
+  border-right: 7px solid white;
+}
+
+#settings-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #94a3b8;
+}
+
+#settings-modal-header-title, #settings-modal-header-team {
+  margin: 0;
+  padding: 0;
+}
+
+#settings-modal-header-title {
+  font-size: 1.5em;
+  font-weight: bold;
+  letter-spacing: -1px;
+  text-transform: uppercase;
+}
+
+#settings-modal-header-team {
+  font-size: 0.8em;
+  color: #777;
+}
+
+#settings-modal-intro {
+  margin: 1rem 0;
+}
+
+#settings-modal-body {
+  margin-top: 1.75rem;
+  margin-bottom: 2.5rem;
+}
+
+.setting-picker-item {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0.75rem;
+}
+
+.setting-picker-item-label {
+  font-size: 0.7em;
+  color: #475569;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+}
+
+.setting-picker-item-input-container {
+  border: 1px solid #94a3b8;
+  border-radius: 1px;
+  display: flex;
+}
+
+.setting-picker-item-input-int-range, .setting-picker-item-input-float-range {
+  margin: 0 1rem;
+  flex: 1;
+}
+
+.setting-picker-item-input-value {
+  margin: 0 1rem;
+  display: flex;
+  text-align: center;
+  align-items: center;
+}
+
+.setting-picker-item-input-buttons {
+  display: flex;
+  gap: 1rem;
+}
+
+.setting-picker-item-button {
+  flex: 1;
+}
+
+.setting-picker-item-button-Red.selected {
+  background: #ef4444;
+}
+
+.setting-picker-item-button-Green.selected {
+  background: #10b981;
+}
+
+.setting-picker-item-button-Blue.selected {
+  background: #0ea5e9;
+}
+
+#settings-modal-footer {
+  display: flex;
+}
+
+#start-game-button {
+  background-color: #333;
+  color: white;
+  border-color: #000; 
+  flex: 1;
+  font-size: 1.5rem;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+
+/* --------------------------------------------------------------------------- */
+/* ERROR SCREEN COMPONENT-SPECIFIC STYLES
+/* --------------------------------------------------------------------------- */
+
+#error-modal{
+  padding-top: 50vh;
+  padding-bottom: 50vh;
+  text-align: center;
+}
+
+#error-modal-body{
+  color: red;
+  font-weight: bold;
+  font-size: 3em;
+}
+
+/* --------------------------------------------------------------------------- */
+/* GAME SCREEN COMPONENT-SPECIFIC STYLES
+/* --------------------------------------------------------------------------- */
+
+#gameplay-screen {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#restart-button-container {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+}
+
+#restart-button {
+  border: 0;
+  margin: 0;
+  background: #94a3b8;
+  color: white;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+button#restart-button:hover {
+  border: 0;
+  margin: 0;
+  background: #475569;
+}
+
+button#restart-button:active {
+  border: 0;
+  margin: 0;
+}
+
+#game-screen-container {
+  display: flex;
+  flex-direction: column;
+}
+
+#game-status {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+.status-lost {
+  background: black;
+}
+
+.status-draw {
+  background: #64748b;
+}
+
+.status-won .game-status-text, .status-lost .game-status-text, .status-draw .game-status-text {
+  color: white !important;
+}
+
+.status-won.red {
+  background: #dc2626;
+}
+
+.status-won.blue {
+  background: #0284c7;
+}
+
+.status-won.green {
+  background: #16a34a;
+}
+
+.game-status-text.red {
+  color: #dc2626;
+}
+
+.game-status-text.blue {
+  color: #0284c7;
+}
+
+.game-status-text.green {
+  color: #16a34a;
+}
+
+#cup {
+  max-width: 100%;
+  max-height: 100%;
+  margin: auto;
+}
+
+.force-text-easy{
+  font-size: 1.2rem;
+  font-weight: bold;
+  align-self: center;
+}
+
+.force-text-hard{
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+#cup-container {
+  margin: auto;
+  width: 60vh;
+  max-width: 90vw;
+  height: 80vh;
+  max-height: 90vw;
+  display: grid;
+  position: relative;
+  z-index: 10;
+}
+
+.game-cell-container {
+  position: absolute;
+
+}
+
+.game-cell {
+  position: relative;
+  height: 100%;
+  left:50px
+}
+
+.game-cell.empty {
+  cursor: pointer;
+}
+
+.game-cell.filled:hover {
+  background-color: #e5e7eb;
+}
+
+.game-cell-marker.empty {
+  display: none;
+}
+
+.game-cell-marker {
+  position: relative;
+  height: 100%;
+  width: 100%;
+  border-radius: 99999px;
+  z-index: 10;
+  border-bottom: 5px solid black;
+  animation-name: place-stone;
+  animation-duration: 0.1s;
+}
+
+.game-cell-marker.filled {
+  background: #000000;
+  border-color: #010101;
+}
+
+.game-cell-line.vertical {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  height: 100%;
+  width: 1px;
+  border-left: 1px dashed #64748b;
+  z-index: 0;
+}
+
+.game-cell-line.horizontal {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  border-top: 1px dashed #64748b;
+  z-index: 0;
+}
+
+.clickable-point.red:hover {
+  cursor: pointer;
+  opacity: 0.5;
+  color: #dc2626;
+}
+
+.clickable-point.blue:hover {
+  cursor: pointer;
+  opacity: 0.5;
+  color: #0284c7;
+}
+
+.clickable-point.green:hover {
+  cursor: pointer;
+  opacity: 0.5;
+  color: #16a34a;
+}
+
+.clickable-point{
+  opacity: 0.5
+}
+
+.straw{
+  opacity: 0.9;
+}
+
+.straw.red:hover{
+  opacity: 0.9;
+  color: #dc2626;
+}
+
+.straw.blue:hover{
+  opacity: 0.9;
+  color: #0284c7;
+}
+
+.straw.green:hover{
+  opacity: 0.9;
+  color: #16a34a;
+}
+
+
+
+
+
+
+
+.firework-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  z-index: 20;
+  pointer-events: none;
+  display: none;
+}
+
+.firework-container.show {
+  display: block;
+}
+
+.flash {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 15;
+  display: none;
+  opacity: 0;
+  animation: flash;
+  animation-duration: 3s;
+  pointer-events: none;
+}
+
+.flash.show {
+  display: block;
+}
+
+.flash.status-won {
+  background: white;
+}
+
+.flash.status-lost {
+  background: black;
+}
+
+.flash.status-draw {
+  background: #475569;
+}
+
+/* --------------------------------------------------------------------------- */
+/* GAME ANIMATIONS
+/* --------------------------------------------------------------------------- */
+
+@keyframes place-stone {
+  from {
+    margin-top: -5px;
+  }
+
+  to {
+    margin-top: 0px;
+  }
+}
+
+@keyframes flash {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* Pure CSS firework animation: */
+/* Adapted from https://codepen.io/alvaromontoro/pen/MWrMEgW (Public CodePen MIT License) */
+@keyframes firework {
+  0% { transform: translate(var(--x), var(--initialY)); width: var(--initialSize); opacity: 1; }
+  50% { width: 0.5vmin; opacity: 1; }
+  100% { width: var(--finalSize); opacity: 0; }
+}
+
+/* @keyframes fireworkPseudo {
+  0% { transform: translate(-50%, -50%); width: var(--initialSize); opacity: 1; }
+  50% { width: 0.5vmin; opacity: 1; }
+  100% { width: var(--finalSize); opacity: 0; }
+}
+ */
+.firework,
+.firework::before,
+.firework::after
+{
+  --initialSize: 0.5vmin;
+  --finalSize: 45vmin;
+  --particleSize: 1vmin;
+  --color1: yellow;
+  --color2: khaki;
+  --color3: white;
+  --color4: lime;
+  --color5: gold;
+  --color6: mediumseagreen;
+  --y: -30vmin;
+  --x: -50%;
+  --initialY: 60vmin;
+  content: "";
+  animation: firework 2s infinite;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, var(--y));
+  width: var(--initialSize);
+  aspect-ratio: 1;
+  background: 
+    /*
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 0% 0%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 100% 0%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 100% 100%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 0% 100%,
+    */
+    
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 50% 0%,
+    radial-gradient(circle, var(--color2) var(--particleSize), #0000 0) 100% 50%,
+    radial-gradient(circle, var(--color3) var(--particleSize), #0000 0) 50% 100%,
+    radial-gradient(circle, var(--color4) var(--particleSize), #0000 0) 0% 50%,
+    
+    /* bottom right */
+    radial-gradient(circle, var(--color5) var(--particleSize), #0000 0) 80% 90%,
+    radial-gradient(circle, var(--color6) var(--particleSize), #0000 0) 95% 90%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 90% 70%,
+    radial-gradient(circle, var(--color2) var(--particleSize), #0000 0) 100% 60%,
+    radial-gradient(circle, var(--color3) var(--particleSize), #0000 0) 55% 80%,
+    radial-gradient(circle, var(--color4) var(--particleSize), #0000 0) 70% 77%,
+    
+    /* bottom left */
+    radial-gradient(circle, var(--color5) var(--particleSize), #0000 0) 22% 90%,
+    radial-gradient(circle, var(--color6) var(--particleSize), #0000 0) 45% 90%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 33% 70%,
+    radial-gradient(circle, var(--color2) var(--particleSize), #0000 0) 10% 60%,
+    radial-gradient(circle, var(--color3) var(--particleSize), #0000 0) 31% 80%,
+    radial-gradient(circle, var(--color4) var(--particleSize), #0000 0) 28% 77%,
+    radial-gradient(circle, var(--color5) var(--particleSize), #0000 0) 13% 72%,
+    
+    /* top left */
+    radial-gradient(circle, var(--color6) var(--particleSize), #0000 0) 80% 10%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 95% 14%,
+    radial-gradient(circle, var(--color2) var(--particleSize), #0000 0) 90% 23%,
+    radial-gradient(circle, var(--color3) var(--particleSize), #0000 0) 100% 43%,
+    radial-gradient(circle, var(--color4) var(--particleSize), #0000 0) 85% 27%,
+    radial-gradient(circle, var(--color5) var(--particleSize), #0000 0) 77% 37%,
+    radial-gradient(circle, var(--color6) var(--particleSize), #0000 0) 60% 7%,
+    
+    /* top right */
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 22% 14%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 45% 20%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 33% 34%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 10% 29%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 31% 37%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 28% 7%,
+    radial-gradient(circle, var(--color1) var(--particleSize), #0000 0) 13% 42%
+    ;
+  background-size: var(--initialSize) var(--initialSize);
+  background-repeat: no-repeat;
+}
+
+.firework::before {
+  --x: -50%;
+  --y: -50%;
+  --initialY: -50%;
+/*   transform: translate(-20vmin, -2vmin) rotate(40deg) scale(1.3) rotateY(40deg); */
+  transform: translate(-50%, -50%) rotate(40deg) scale(1.3) rotateY(40deg);
+/*   animation: fireworkPseudo 2s infinite; */
+}
+
+.firework::after {
+  --x: -50%;
+  --y: -50%;
+  --initialY: -50%;
+/*   transform: translate(44vmin, -50%) rotate(170deg) scale(1.15) rotateY(-30deg); */
+  transform: translate(-50%, -50%) rotate(170deg) scale(1.15) rotateY(-30deg);
+/*   animation: fireworkPseudo 2s infinite; */
+}
+
+.firework:nth-child(2) {
+  --x: 30vmin;
+}
+
+.firework:nth-child(2),
+.firework:nth-child(2)::before,
+.firework:nth-child(2)::after {
+  --color1: pink;
+  --color2: violet;
+  --color3: fuchsia;
+  --color4: orchid;
+  --color5: plum;
+  --color6: lavender;  
+  --finalSize: 40vmin;
+  left: 30%;
+  top: 60%;
+  animation-delay: -0.25s;
+}
+
+.firework:nth-child(3) {
+  --x: -30vmin;
+  --y: -50vmin;
+}
+
+.firework:nth-child(3),
+.firework:nth-child(3)::before,
+.firework:nth-child(3)::after {
+  --color1: cyan;
+  --color2: lightcyan;
+  --color3: lightblue;
+  --color4: PaleTurquoise;
+  --color5: SkyBlue;
+  --color6: lavender;
+  --finalSize: 35vmin;
+  left: 70%;
+  top: 60%;
+  animation-delay: -0.4s;
+}
